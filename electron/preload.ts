@@ -48,4 +48,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Lyrics fetch (via main process)
   fetchLyrics: (url: string) => ipcRenderer.invoke('fetch-lyrics', url),
+
+  // Auto-updater
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  checkUpdateNow: () => ipcRenderer.send('check-update-now'),
 })

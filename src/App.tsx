@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Resizable } from 're-resizable'
+import { RefreshCw, Download } from 'lucide-react'
 import { useThemeStore } from './store/themeStore'
 import { useAppStore } from './store/appStore'
 import { usePlayerStore } from './store/playerStore'
@@ -20,6 +21,35 @@ export default function App() {
   const { page, showSplash, setShowSplash, sidebarWidth, setSidebarWidth } = useAppStore()
   const { currentTrack, savePlayback } = usePlayerStore()
   const loadedRef = useRef(false)
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null)
+  const [updateType, setUpdateType] = useState<'download' | 'restart' | null>(null)
+
+  // Auto-update listener dari main process
+  useEffect(() => {
+    // Listener update available
+    const onUpdateAvailable = () => {
+      setUpdateMsg('A new version is available!')
+      setUpdateType('download')
+    }
+    const onUpdateDownloaded = () => {
+      setUpdateMsg('Update downloaded! Restart to apply.')
+      setUpdateType('restart')
+    }
+    const onUpdateNotAvailable = () => {}
+
+    // Kita polling dari renderer
+    const checkUpdate = async () => {
+      try {
+        if (window.electronAPI?.checkForUpdates) {
+          await window.electronAPI.checkForUpdates()
+        }
+      } catch {}
+    }
+
+    // Cek update 5 detik setelah start
+    const t = setTimeout(checkUpdate, 5000)
+    return () => clearTimeout(t)
+  }, [])
 
   // Initialize audio player hooks
   useAudioPlayer()
@@ -143,6 +173,35 @@ export default function App() {
           </main>
         </div>
         {currentTrack && <NowPlayingBar />}
+
+        {/* Update banner */}
+        {updateMsg && (
+          <div
+            className="flex items-center justify-between px-4 py-2 text-xs font-medium animate-slideUp"
+            style={{
+              background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary})`,
+              color: '#fff',
+            }}
+          >
+            <span>{updateMsg}</span>
+            <button
+              className="px-3 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1"
+              style={{ background: 'rgba(255,255,255,0.2)' }}
+              onClick={() => {
+                if (updateType === 'restart') {
+                  window.electronAPI?.storeSet?.('_restart', true)
+                  window.close()
+                } else {
+                  window.electronAPI?.checkForUpdates?.()
+                  setUpdateMsg('Downloading...')
+                }
+                setUpdateMsg(null)
+              }}
+            >
+              {updateType === 'restart' ? 'Restart' : <><Download size={10} /> Update</>}
+            </button>
+          </div>
+        )}
       </div>
     </>
   )

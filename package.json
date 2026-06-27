@@ -20,6 +20,12 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "NutZwel",
+      "repo": "Nyu-rrka",
+      "releaseType": "release"
+    },
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -56,6 +62,7 @@
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.9",
     "howler": "^2.2.4",
     "lucide-react": "^0.379.0",
     "play-dl": "^1.9.7",

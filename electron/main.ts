@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, Tray, Menu, net } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import Store from 'electron-store'
@@ -146,6 +147,36 @@ function createTray() {
   })
 }
 
+// ─── Auto-updater ───
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = true
+
+autoUpdater.on('update-available', () => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Available',
+    message: 'A new version of Nyu\'rka is available. Do you want to download it?',
+    buttons: ['Download', 'Later'],
+  }).then(({ response }) => {
+    if (response === 0) autoUpdater.downloadUpdate()
+  })
+})
+
+autoUpdater.on('update-not-available', () => {
+  // Silent — gak perlu notif kalo gak ada update
+})
+
+autoUpdater.on('update-downloaded', () => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Ready',
+    message: 'Update downloaded. Restart Nyu\'rka to apply?',
+    buttons: ['Restart', 'Later'],
+  }).then(({ response }) => {
+    if (response === 0) autoUpdater.quitAndInstall()
+  })
+})
+
 app.whenReady().then(() => {
   createMainWindow()
   createTray()
@@ -153,6 +184,9 @@ app.whenReady().then(() => {
   registerSpotifyIPCs(store, mainWindow!)
   registerYoutubeIPCs()
   registerPlaylistIPCs(() => store.get('spotifyToken') as string | null)
+
+  // Cek update setelah window siap
+  setTimeout(() => autoUpdater.checkForUpdates(), 3000)
 
   // Theme IPC
   ipcMain.handle('get-theme', () => store.get('theme'))
@@ -187,6 +221,13 @@ app.whenReady().then(() => {
   ipcMain.handle('store-set', (_event, key: string, value: any) => {
     store.set(key, value)
     return true
+  })
+
+  // Auto-update IPC
+  ipcMain.handle('check-for-updates', () => autoUpdater.checkForUpdates())
+  ipcMain.on('check-update-now', () => {
+    autoUpdater.autoDownload = true
+    autoUpdater.checkForUpdates()
   })
 
   // File dialog for custom GIF mascot

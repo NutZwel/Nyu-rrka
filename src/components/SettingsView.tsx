@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LogIn, LogOut, Monitor, Eye, Music, Key, Check, Palette, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { LogIn, LogOut, Monitor, Eye, Music, Key, Check, Palette, Image as ImageIcon, Trash2, RefreshCw } from 'lucide-react'
 import { useThemeStore } from '../store/themeStore'
 import { useAppStore } from '../store/appStore'
 
@@ -10,6 +10,7 @@ export default function SettingsView() {
   const [tokenInput, setTokenInput] = useState('')
   const [showTokenInput, setShowTokenInput] = useState(false)
   const [tokenStatus, setTokenStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'available'>('idle')
 
   useEffect(() => { loadSettings() }, [])
 
@@ -125,6 +126,29 @@ export default function SettingsView() {
         <div className="text-[10px] font-semibold tracking-wider" style={{ color: theme.textSecondary }}>AUDIO</div>
         <SettingCard label="Audio Source" description="YouTube streams">
           <Music size={16} style={{ color: theme.secondary }} />
+        </SettingCard>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-[10px] font-semibold tracking-wider" style={{ color: theme.textSecondary }}>UPDATE</div>
+        <SettingCard label="Check for Updates" description={updateStatus === 'checking' ? 'Checking...' : updateStatus === 'latest' ? 'You have the latest version' : updateStatus === 'available' ? 'Update available!' : 'Auto-updates via GitHub'}>
+          <button className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all"
+            style={{ background: `${theme.primary}15`, color: theme.primary }}
+            onClick={async () => {
+              setUpdateStatus('checking')
+              try {
+                if (window.electronAPI?.checkForUpdates) {
+                  await window.electronAPI.checkForUpdates()
+                  setUpdateStatus('latest')
+                } else {
+                  setUpdateStatus('available')
+                }
+              } catch { setUpdateStatus('available') }
+              setTimeout(() => setUpdateStatus('idle'), 3000)
+            }}>
+            <RefreshCw size={12} className={updateStatus === 'checking' ? 'animate-spin' : ''} />
+            {updateStatus === 'checking' ? '...' : 'Check'}
+          </button>
         </SettingCard>
       </div>
     </div>

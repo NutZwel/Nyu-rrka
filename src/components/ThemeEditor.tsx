@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Palette, RefreshCw, ChevronDown, ChevronUp, Check } from 'lucide-react'
+import { Palette, RefreshCw, ChevronDown, ChevronUp, Check, Link } from 'lucide-react'
 import { useThemeStore } from '../store/themeStore'
 import { Theme } from '../types'
 import PixelMascot from './PixelMascot'
@@ -30,6 +30,69 @@ export default function ThemeEditor() {
   const { theme, availableThemes, updateTheme, resetTheme, applyPreset } = useThemeStore()
   const [expandedGroup, setExpandedGroup] = useState('Brand Colors')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [colorHuntUrl, setColorHuntUrl] = useState('')
+  const [colorHuntStatus, setColorHuntStatus] = useState<string | null>(null)
+
+  const extractColorHuntColors = (url: string): string[] | null => {
+    // Color Hunt URL format: https://colorhunt.co/palette/0f28541c4d8d4988c4bde8f5
+    const match = url.match(/palette\/([a-fA-F0-9]{24,32})/)
+    if (!match) return null
+    const hex = match[1]
+    // 6 hex chars per color = 4 colors, or 8 per color = 3 colors
+    const colors: string[] = []
+    if (hex.length === 24) {
+      // 6 chars per color × 4
+      for (let i = 0; i < 24; i += 6) {
+        colors.push(`#${hex.slice(i, i + 6)}`)
+      }
+    } else if (hex.length === 32) {
+      // 8 chars per color × 4 (ignore alpha = take first 6)
+      for (let i = 0; i < 32; i += 8) {
+        colors.push(`#${hex.slice(i, i + 6)}`)
+      }
+    }
+    return colors.length >= 3 ? colors : null
+  }
+
+  const handleColorHuntUrl = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value
+    setColorHuntUrl(url)
+    setColorHuntStatus(null)
+  }
+
+  const applyColorHunt = () => {
+    if (colorHuntUrl.length < 10) {
+      setColorHuntStatus('invalid')
+      setTimeout(() => setColorHuntStatus(null), 2000)
+      return
+    }
+    const colors = extractColorHuntColors(colorHuntUrl)
+    if (colors && colors.length >= 3) {
+      // Color Hunt: [warna1, warna2, warna3, warna4] → kiri ke kanan
+      // Map: paling kiri = background, ke kanan = sisanya, paling kanan = accent
+      const cBg = colors[0] // background (paling kiri)
+      const cAccent = colors.length > 3 ? colors[3] : colors[2] // accent (paling kanan)
+      const cPrimary = colors.length > 3 ? colors[2] : colors[1] // primary = 1 tingkat lebih gelap dari accent
+      const cSecondary = colors.length > 3 ? colors[1] : colors[0] // secondary = 2 tingkat lebih gelap
+
+      const newTheme: Partial<Theme> = {
+        background: cBg,
+        surface: lightenHex(cBg, 0.08) || cBg,
+        surfaceAlt: lightenHex(cBg, 0.15) || cBg,
+        primary: darkenHex(cAccent, 0.7) || cAccent,
+        secondary: darkenHex(cAccent, 0.5) || cAccent,
+        accent: cAccent,
+        text: cAccent,
+        textSecondary: darkenHex(cAccent, 0.65) || cAccent,
+        border: lightenHex(cBg, 0.5) || cBg,
+      }
+      updateTheme(newTheme)
+      setColorHuntStatus('ok')
+    } else {
+      setColorHuntStatus('invalid')
+    }
+    setTimeout(() => setColorHuntStatus(null), 3000)
+  }
 
   const ColorPicker = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <div className="flex items-center gap-2.5">
@@ -49,6 +112,39 @@ export default function ThemeEditor() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2"><Palette size={16} style={{ color: theme.primary }} /><span className="text-sm font-semibold" style={{ color: theme.text }}>Themes</span></div>
         <button className="px-2.5 py-1.5 rounded-xl text-[10px] font-medium flex items-center gap-1 transition-all" style={{ background: `${theme.error}15`, color: theme.error }} onClick={resetTheme}><RefreshCw size={10} />Reset</button>
+      </div>
+
+      {/* Color Hunt import */}
+      <div className="p-3 rounded-2xl" style={{ background: theme.surface, border: `1px solid ${theme.border}30` }}>
+        <div className="flex items-center gap-2 mb-2">
+          <Link size={12} style={{ color: theme.primary }} />
+          <span className="text-[10px] font-semibold tracking-wider" style={{ color: theme.textSecondary }}>IMPORT FROM COLOR HUNT</span>
+        </div>
+        <div className="text-[9px] mb-2" style={{ color: theme.textSecondary + '90' }}>
+          Paste Color Hunt URL to extract palette
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={colorHuntUrl}
+            onChange={handleColorHuntUrl}
+            placeholder="https://colorhunt.co/palette/..."
+            className="flex-1 px-2.5 py-1.5 rounded-xl text-xs outline-none"
+            style={{ background: theme.surfaceAlt, color: theme.text, border: `1px solid ${theme.border}` }}
+          />
+          <button
+            onClick={applyColorHunt}
+            className="px-3 py-1.5 rounded-xl text-[10px] font-medium transition-all"
+            style={{ background: theme.primary, color: '#fff' }}
+          >
+            Apply
+          </button>
+        </div>
+        {colorHuntStatus && (
+          <div className="text-[10px]" style={{ color: colorHuntStatus === 'ok' ? theme.success : theme.error }}>
+            {colorHuntStatus === 'ok' ? '✓ Palette imported!' : colorHuntStatus === 'invalid' ? '✗ Invalid URL' : colorHuntStatus}
+          </div>
+        )}
       </div>
 
       {/* Presets */}
@@ -131,4 +227,24 @@ export default function ThemeEditor() {
       </div>
     </div>
   )
+}
+
+// ─── Color helpers ───
+function darkenHex(hex: string, factor: number): string {
+  const c = hex.replace('#', '')
+  if (c.length < 6) return hex
+  const r = Math.round(parseInt(c.substring(0,2), 16) * factor)
+  const g = Math.round(parseInt(c.substring(2,4), 16) * factor)
+  const b = Math.round(parseInt(c.substring(4,6), 16) * factor)
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`
+}
+
+function lightenHex(hex: string, percent: number): string {
+  // percent 0-1: seberapa terang (1 = putih sepenuhnya)
+  const c = hex.replace('#', '')
+  if (c.length < 6) return hex
+  const r = Math.min(255, Math.round(parseInt(c.substring(0,2), 16) + (255 - parseInt(c.substring(0,2), 16)) * percent))
+  const g = Math.min(255, Math.round(parseInt(c.substring(2,4), 16) + (255 - parseInt(c.substring(2,4), 16)) * percent))
+  const b = Math.min(255, Math.round(parseInt(c.substring(4,6), 16) + (255 - parseInt(c.substring(4,6), 16)) * percent))
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`
 }

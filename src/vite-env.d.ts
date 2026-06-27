@@ -29,6 +29,8 @@ interface ElectronAPI {
   showNotification: (title: string, body: string) => void
   selectGif: () => Promise<string | null>
   fetchLyrics: (url: string) => Promise<{ data?: any; error?: string; status: number }>
+  checkForUpdates: () => Promise<any>
+  checkUpdateNow: () => void
 }
 
 declare global {
