@@ -3,6 +3,7 @@ dist/
 dist-electron/
 release/
 !release/*.apk
+!release/*.exe
 .vite/
 *.log
 .DS_Store
