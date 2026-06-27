@@ -1,30 +1,58 @@
 const express = require('express')
 const cors = require('cors')
-const { execSync } = require('child_process')
+const { execSync, spawn } = require('child_process')
+const fs = require('fs')
 const path = require('path')
 
 const app = express()
 app.use(cors())
 const PORT = process.env.PORT || 3000
 
-// Cari yt-dlp
+// ─── yt-dlp: cari atau download ───
 let ytPath = 'yt-dlp'
-try { execSync(`"${ytPath}" --version`, { stdio: 'pipe', timeout: 5000 }) }
-catch {
-  const tmp = path.join(__dirname, '..', 'temp')
-  ytPath = path.join(tmp, 'yt-dlp.exe')
-  if (!require('fs').existsSync(ytPath)) {
-    console.log('Downloading yt-dlp...')
-    execSync(`curl -#L -o "${ytPath}" https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe`, { timeout: 120000 })
+
+function findYtDlp() {
+  try {
+    execSync(`"${ytPath}" --version`, { stdio: 'pipe', timeout: 10000 })
+    return true
+  } catch {
+    // Di Railway/Linux biasanya pake pip
+    try {
+      execSync('which yt-dlp || pip install yt-dlp || pip3 install yt-dlp', { stdio: 'pipe', timeout: 30000 })
+      execSync(`"${ytPath}" --version`, { stdio: 'pipe', timeout: 10000 })
+      return true
+    } catch {
+      // Download dari GitHub
+      const dest = '/tmp/yt-dlp'
+      try {
+        execSync(`curl -#L -o ${dest} https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux && chmod +x ${dest}`, { timeout: 120000 })
+        ytPath = dest
+        return true
+      } catch { return false }
+    }
   }
 }
-console.log('[Server] yt-dlp ready')
+
+console.log('[Server] Setting up yt-dlp...')
+findYtDlp()
+console.log('[Server] yt-dlp ready:', ytPath)
 
 function yt(args) {
   return execSync(`"${ytPath}" ${args}`, { encoding: 'utf8', timeout: 30000 })
 }
 
+function ytSpawn(args) {
+  const [cmd, ...rest] = [ytPath, ...args]
+  return spawn(cmd, rest)
+}
+
+// ─── Cache ───
+const streamCache = new Map()
+const CACHE_TTL = 120_000
+
+// ─── Routes ───
 app.head('/api/ping', (_, r) => r.sendStatus(200))
+app.get('/api/ping', (_, r) => r.json({ ok: true }))
 
 app.get('/api/search', (req, res) => {
   const q = req.query.q
@@ -39,11 +67,11 @@ app.get('/api/search', (req, res) => {
   } catch { res.status(500).json({ error: 'search failed' }) }
 })
 
-const streamCache = new Map()
 app.get('/api/stream/:id', (req, res) => {
   const id = req.params.id
   const cached = streamCache.get(id)
-  if (cached && Date.now() - cached.ts < 120000) return res.json({ streamUrl: cached.url, id })
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return res.json({ streamUrl: cached.url, id })
+
   try {
     const url = yt(`-f "bestaudio[ext=m4a]/bestaudio" --get-url --no-warnings "https://youtube.com/watch?v=${id}"`).trim()
     if (url.startsWith('http')) {
@@ -53,4 +81,4 @@ app.get('/api/stream/:id', (req, res) => {
   } catch { res.status(500).json({ error: 'stream failed' }) }
 })
 
-app.listen(PORT, '0.0.0.0', () => console.log(`[Server] http://localhost:${PORT}`))
+app.listen(PORT, '0.0.0.0', () => console.log(`[Server] Nyu'rka API running on port ${PORT}`))
