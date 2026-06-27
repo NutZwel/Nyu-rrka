@@ -6,7 +6,7 @@ import PlayerScreen from './src/screens/PlayerScreen'
 import SearchScreen from './src/screens/SearchScreen'
 import QueueScreen from './src/screens/QueueScreen'
 
-const APP_VERSION = '1.0.2'
+const APP_VERSION = '1.0.3'
 const GITHUB_REPO = 'NutZwel/Nyu-rrka'
 const WORKER = 'nyu-rka.aditsopo76912.workers.dev'
 const CLOUD_SERVER = 'https://nyu-rrka-production.up.railway.app'
