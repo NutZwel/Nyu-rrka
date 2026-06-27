@@ -11,34 +11,31 @@ const GITHUB_REPO = 'NutZwel/Nyu-rrka'
 
 interface Track { id: string; title: string; artist: string; albumArt: string; duration: number; streamUrl?: string }
 
-// Coba server lokal dulu, fallback ke piped
-const SERVERS = [
-  (id: string) => `http://192.168.100.10:3000/api/stream/${id}`, // PC WiFi
-  (id: string) => `http://192.168.1.1:3000/api/stream/${id}`,
-  (id: string) => `http://10.0.0.2:3000/api/stream/${id}`,
-  (id: string) => `https://pipedapi.r4fo.com/streams/${id}`,
-  (id: string) => `https://pipedapi.kavin.rocks/streams/${id}`,
-]
-
+// Piped API + server lokal fallback untuk stream
 async function getStreamUrl(videoId: string): Promise<string | null> {
-  for (const s of SERVERS) {
+  const apis = [
+    `https://pipedapi.r4fo.com/streams/${videoId}`,
+    `https://pipedapi.kavin.rocks/streams/${videoId}`,
+    `https://pipedapi.leptons.xyz/streams/${videoId}`,
+    `http://192.168.100.10:3000/api/stream/${videoId}`,
+  ]
+
+  for (const api of apis) {
     try {
-      const url = s(videoId)
-      const r = await fetch(url)
+      const r = await fetch(api)
       if (!r.ok) continue
-      if (url.includes('stream/')) {
-        // Server lokal
-        const d = await r.json()
-        if (d?.streamUrl) return d.streamUrl
-      } else {
-        // Piped API
-        const d = await r.json()
-        const audio = d.audioStreams?.filter((s: any) => s.mimeType?.includes('mp4') || s.mimeType?.includes('webm'))
+      const d = await r.json()
+
+      // Piped API response
+      if (d.audioStreams) {
+        const audio = d.audioStreams.filter((s: any) => s.mimeType?.includes('mp4') || s.mimeType?.includes('webm'))
         if (audio?.length > 0) {
           const best = audio.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0]
           if (best?.url) return best.url
         }
       }
+      // Server lokal response
+      if (d.streamUrl) return d.streamUrl
     } catch {}
   }
   return null

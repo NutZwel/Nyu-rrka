@@ -7,6 +7,59 @@ interface Track {
 
 const fmt = (s: number) => s ? `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}` : '0:00'
 
+// ─── YouTube search langsung scraping dari YouTube ───
+// Gak perlu API key, server, atau library tambahan
+async function searchYouTube(query: string): Promise<Track[]> {
+  try {
+    const html = await (await fetch(
+      `https://www.youtube.com/results?q=${encodeURIComponent(query)}`,
+      { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36' } }
+    )).text()
+
+    // Ambil ytInitialData dari HTML
+    const match = html.match(/ytInitialData[^{]*({.*"adSafetyReason":[^;]*});/s)
+        || html.match(/ytInitialData"[^{]*({.*});\s*window\["ytInitialPlayerResponse"\]/s)
+
+    if (!match) return []
+
+    const data = JSON.parse(match[1])
+    const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents
+    if (!contents) return []
+
+    const results: Track[] = []
+
+    for (const section of contents) {
+      const items = section?.itemSectionRenderer?.contents || []
+      for (const item of items) {
+        const video = item?.videoRenderer
+        if (!video || !video?.videoId || !video?.lengthText) continue
+
+        // Duration parse: "3:45" or "1:02:30" → detik
+        const durStr = video.lengthText?.simpleText || ''
+        const durParts = durStr.split(':').map(Number)
+        let duration = 0
+        if (durParts.length === 3) duration = durParts[0] * 3600 + durParts[1] * 60 + durParts[2]
+        else if (durParts.length === 2) duration = durParts[0] * 60 + durParts[1]
+
+        results.push({
+          id: video.videoId,
+          title: video.title?.runs?.map((r: any) => r.text).join('') || 'Unknown',
+          artist: video.ownerText?.runs?.[0]?.text || 'Unknown',
+          albumArt: video.thumbnail?.thumbnails?.[video.thumbnail.thumbnails.length - 1]?.url || '',
+          duration,
+        })
+
+        if (results.length >= 10) break
+      }
+      if (results.length >= 10) break
+    }
+
+    return results
+  } catch {
+    return []
+  }
+}
+
 export default function SearchScreen({ onPlay, onQueue }: { onPlay: (t: Track) => void; onQueue: (t: Track) => void }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Track[]>([])
@@ -17,44 +70,8 @@ export default function SearchScreen({ onPlay, onQueue }: { onPlay: (t: Track) =
     const q = query.trim()
     if (q.length < 2) return
     setSearching(true)
-    try {
-      // Server lokal (PC kamu) + Piped fallback
-      let data: any = null
-      const apis = [
-        `http://192.168.100.10:3000/api/search?q=${encodeURIComponent(q)}`,
-        `http://192.168.1.1:3000/api/search?q=${encodeURIComponent(q)}`,
-        `http://10.0.0.2:3000/api/search?q=${encodeURIComponent(q)}`,
-        `https://pipedapi.r4fo.com/search?q=${encodeURIComponent(q)}&filter=videos`,
-        `https://pipedapi.leptons.xyz/search?q=${encodeURIComponent(q)}&filter=videos`,
-      ]
-
-      for (const api of apis) {
-        try {
-          const r = await fetch(api)
-          if (r.ok) {
-            const json = await r.json()
-            if (typeof json === 'object' && json.items) {
-              data = json
-            } else if (Array.isArray(json)) {
-              data = { items: json }
-            } else {
-              data = json
-            }
-            if (data?.items?.length > 0) break
-          }
-        } catch {}
-      }
-
-      if (!data) { setSearching(false); return }
-      const tracks = (data.items || []).slice(0, 15).map((item: any) => ({
-        id: item.url?.split('v=')[1] || item.url?.split('/')[3] || '',
-        title: item.title || 'Unknown',
-        artist: item.uploaderName || 'Unknown',
-        albumArt: item.thumbnail || `https://i.ytimg.com/vi/${item.url?.split('v=')[1] || ''}/hqdefault.jpg`,
-        duration: item.duration || 0,
-      })).filter((t: Track) => t.id)
-      setResults(tracks)
-    } catch {}
+    const tracks = await searchYouTube(q)
+    setResults(tracks)
     setSearching(false)
   }, [query])
 
