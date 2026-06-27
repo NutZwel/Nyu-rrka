@@ -100,6 +100,29 @@ export function useAudioPlayer() {
         audio.preload = 'auto'
         audio.src = result.streamUrl
 
+        let recoveryAttempts = 0
+        let recoveryTimer: ReturnType<typeof setTimeout> | null = null
+
+        const tryRecover = () => {
+          if (recoveryAttempts >= 3) {
+            // Skip ke next setelah 3x gagal
+            usePlayerStore.getState().nextTrack()
+            return
+          }
+          recoveryAttempts++
+          // Reload stream URL
+          const currentId = usePlayerStore.getState().currentTrack?.id
+          if (!currentId) return
+          const ytUrl = currentTrack.youtubeUrl || (currentTrack.youtubeId ? `https://youtube.com/watch?v=${currentTrack.youtubeId}` : '')
+          if (!ytUrl) return
+          window.electronAPI?.youtubeGetStream(ytUrl).then(r => {
+            if (r?.streamUrl) {
+              audio.src = r.streamUrl
+              audio.play().catch(() => {})
+            }
+          })
+        }
+
         const onCanPlay = () => {
           if (usePlayerStore.getState().isPlaying && audio.paused) {
             audio.play().catch(() => {})
@@ -122,17 +145,8 @@ export function useAudioPlayer() {
           console.error('Audio error:', audio.error?.code)
           setPlaying(false)
           loadingRef.current = false
-          // Auto-skip on audio error
-          const loop = usePlayerStore.getState().loopMode
-          if (loop !== 'one') {
-            setTimeout(() => {
-              usePlayerStore.getState().nextTrack()
-              try {
-                window.electronAPI?.showNotification?.('Playback Error',
-                  'Audio error. Skipping to next track.')
-              } catch {}
-            }, 300)
-          }
+          // Coba recover dulu, kalo gagal skip
+          tryRecover()
         }
         const onStalled = () => {
           // Stalled — coba recover
@@ -140,6 +154,15 @@ export function useAudioPlayer() {
             audio.play().catch(() => {})
           }
         }
+        // Monitor: kalo isPlaying true tapi audio diam > 5 detik, coba recover
+        const monitorInterval = setInterval(() => {
+          if (usePlayerStore.getState().isPlaying && audio.paused && audio.currentTime > 0 && !audio.ended) {
+            // Audio berhenti sendiri — coba play ulang
+            audio.play().catch(() => {
+              if (recoveryAttempts < 2) tryRecover()
+            })
+          }
+        }, 3000)
 
         audio.addEventListener('canplay', onCanPlay)
         audio.addEventListener('loadedmetadata', onMeta)
@@ -157,6 +180,8 @@ export function useAudioPlayer() {
           audio.removeEventListener('error', onError)
           audio.removeEventListener('stalled', onStalled)
           audio.removeEventListener('suspend', onStalled)
+          if (recoveryTimer) clearTimeout(recoveryTimer)
+          clearInterval(monitorInterval)
         }
 
         try {
@@ -167,7 +192,7 @@ export function useAudioPlayer() {
         }
 
         loadingRef.current = false
-      } catch {
+      } catch (err) {
         setPlaying(false)
         loadingRef.current = false
         // Auto-skip on general error
@@ -184,6 +209,20 @@ export function useAudioPlayer() {
     run()
     return () => { cancelled = true }
   }, [currentTrack, stopAudio])
+
+  // Recover: monitor kalo isPlaying tapi audio berhenti sendiri
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !currentTrack) return
+
+    const id = setInterval(() => {
+      if (usePlayerStore.getState().isPlaying && audio.paused && audio.currentTime > 0 && !audio.ended && !audio.error) {
+        audio.play().catch(() => {})
+      }
+    }, 2000)
+
+    return () => clearInterval(id)
+  }, [currentTrack])
 
   // Play/Pause
   useEffect(() => {
