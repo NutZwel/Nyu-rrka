@@ -1,2 +1,5 @@
 [providers]
 apt = ["yt-dlp", "python3", "ffmpeg", "curl", "ca-certificates"]
+
+[cache]
+key = "nyu-rrka-v2"
