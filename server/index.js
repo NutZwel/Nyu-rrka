@@ -116,10 +116,41 @@ function parseDuration(s) {
   return 0
 }
 
-// ── Streaming cache (save to temp file, serve via range requests) ──
-const downloading = new Set()
-const streamCache = new Map()
-let activeServer = null
+// ── Stream URL cache ── (simpan googlevideo URL, bukan file)
+const streamUrlCache = new Map()
+const downloadingUrls = new Set()
+
+async function getStreamUrl(videoId) {
+  // Coba cache
+  if (streamUrlCache.has(videoId)) return streamUrlCache.get(videoId)
+
+  // Lagi proses? tunggu
+  if (downloadingUrls.has(videoId)) {
+    for (let i = 0; i < 30; i++) { // max 15 detik
+      await new Promise(r => setTimeout(r, 500))
+      if (streamUrlCache.has(videoId)) return streamUrlCache.get(videoId)
+      if (!downloadingUrls.has(videoId)) break
+    }
+  }
+
+  downloadingUrls.add(videoId)
+  try {
+    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio/best', '--get-url', '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
+    const output = await spawnOutput(cmd, args, 15000)
+    const url = output.trim()
+    if (url.startsWith('http')) {
+      streamUrlCache.set(videoId, url)
+      // Auto-clear cache after 10 menit
+      setTimeout(() => { streamUrlCache.delete(videoId); downloadingUrls.delete(videoId) }, 600000)
+      return url
+    }
+  } catch (e) {
+    console.error('[getStreamUrl]', videoId, e.message)
+  } finally {
+    downloadingUrls.delete(videoId)
+  }
+  return null
+}
 
 function killActiveServer() {
   if (activeServer) { try { activeServer.close() } catch {}; activeServer = null }
@@ -208,7 +239,6 @@ app.get('/api/search', async (req, res) => {
   if (!ytAvailable) return res.status(503).json({ error: 'yt-dlp not available' })
 
   try {
-    // Use --dump-json to get full metadata including uploader and thumbnail
     const output = ytExec(`--flat-playlist --dump-json --no-warnings "ytsearch15:${q.replace(/"/g, '\\"')}"`, { timeout: 20000 })
     const results = []
     const lines = output.trim().split('\n').filter(Boolean)
@@ -226,8 +256,10 @@ app.get('/api/search', async (req, res) => {
       } catch {}
     }
 
-    // Try to preload first result
-    if (results.length > 0) preloadVideo(results[0].id)
+    // Preload streaming URL untuk result pertama — biar play cepet
+    if (results.length > 0) {
+      getStreamUrl(results[0].id).catch(() => {})
+    }
 
     res.json(results.slice(0, 15))
   } catch (e) {
@@ -236,34 +268,16 @@ app.get('/api/search', async (req, res) => {
   }
 })
 
-// Stream — get direct audio URL or serve from cache
+// Stream — get direct audio URL (dari cache kalo udah ada)
 app.get('/api/stream/:id', async (req, res) => {
   const videoId = req.params.id
   if (!videoId) return res.status(400).json({ error: 'Missing video ID' })
   if (!ytAvailable) return res.status(503).json({ error: 'yt-dlp not available' })
 
-  // Check cache
-  const cacheKey = `preload_${videoId}`
-  if (streamCache.has(cacheKey)) {
-    const cached = streamCache.get(cacheKey)
-    try {
-      const port = await serveFromFile(cached.filePath, cached.size, cached.contentType)
-      return res.json({ streamUrl: `http://0.0.0.0:${port}/`, source: 'cache' })
-    } catch {}
-  }
-
   try {
-    // Get direct streaming URL
-    // Try bestaudio, fallback to any audio, then any format
-    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio/best', '--get-url', '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
-    const streamUrl = await spawnOutput(cmd, args, 15000)
-    const url = streamUrl.trim()
+    const url = await getStreamUrl(videoId)
+    if (!url) return res.status(500).json({ error: 'Failed to get stream URL' })
 
-    if (!url.startsWith('http')) {
-      return res.status(500).json({ error: 'Invalid stream URL' })
-    }
-
-    // Also get metadata
     let title = 'Unknown', duration = 0
     try {
       const meta = ytExec(`--print "%(title)s|%(duration)s" --no-warnings "https://youtube.com/watch?v=${videoId}"`, { timeout: 8000 })
@@ -272,48 +286,23 @@ app.get('/api/stream/:id', async (req, res) => {
       duration = parseInt(d) || 0
     } catch {}
 
-    // Preload in background
-    preloadVideo(videoId)
-
     res.json({ streamUrl: url, duration, title, videoId })
   } catch (e) {
-    console.error('[Stream]', e.message)
     res.status(500).json({ error: 'Stream failed', detail: e.message })
   }
 })
 
 // Stream with preload/download (slower first time, cached subsequent)
+// Legacy redirect — pake endpoint /api/stream/:id aja
 app.get('/api/stream-cached/:id', async (req, res) => {
   const videoId = req.params.id
   if (!videoId) return res.status(400).json({ error: 'Missing video ID' })
   if (!ytAvailable) return res.status(503).json({ error: 'yt-dlp not available' })
-
-  const cacheKey = `preload_${videoId}`
-  if (streamCache.has(cacheKey)) {
-    const cached = streamCache.get(cacheKey)
-    try {
-      const port = await serveFromFile(cached.filePath, cached.size, cached.contentType)
-      return res.json({ streamUrl: `http://0.0.0.0:${port}/`, source: 'cache' })
-    } catch {}
-  }
-
-  // Download and cache
-  const tmpFile = path.join(__dirname, '..', 'temp', `nyu_${videoId}_${Date.now()}.m4a`)
   try {
-    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio/best', '-o', tmpFile, '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
-    await spawnOutput(cmd, args, 60000)
-
-    if (fs.existsSync(tmpFile)) {
-      const stat = fs.statSync(tmpFile)
-      const timer = setTimeout(() => { streamCache.delete(cacheKey); try { fs.unlinkSync(tmpFile) } catch {} }, 120000)
-      streamCache.set(cacheKey, { filePath: tmpFile, size: stat.size, contentType: 'audio/mp4', timer })
-      const port = await serveFromFile(tmpFile, stat.size, 'audio/mp4')
-      res.json({ streamUrl: `http://0.0.0.0:${port}/`, source: 'cached-download', duration: 0 })
-    } else {
-      res.status(500).json({ error: 'Download failed' })
-    }
+    const url = await getStreamUrl(videoId)
+    if (!url) return res.status(500).json({ error: 'Failed to get stream URL' })
+    res.json({ streamUrl: url, source: 'cached', duration: 0 })
   } catch (e) {
-    console.error('[Stream-Cached]', e.message)
     res.status(500).json({ error: 'Stream failed', detail: e.message })
   }
 })
