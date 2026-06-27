@@ -1,2 +1,2 @@
 [providers]
-apt = ["yt-dlp", "curl", "python3"]
+apt = ["yt-dlp", "python3", "ffmpeg", "curl", "ca-certificates"]
