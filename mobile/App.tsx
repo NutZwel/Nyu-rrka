@@ -9,7 +9,7 @@ import QueueScreen from './src/screens/QueueScreen'
 const APP_VERSION = '1.0.2'
 const GITHUB_REPO = 'NutZwel/Nyu-rrka'
 const WORKER = 'nyu-rka.aditsopo76912.workers.dev'
-const CLOUD_SERVER = 'https://nyu-rka-server.up.railway.app'
+const CLOUD_SERVER = 'https://nyu-rrka-production.up.railway.app'
 const LOCAL_SERVER = 'http://192.168.100.10:3000'
 
 interface Track { id: string; title: string; artist: string; albumArt: string; duration: number; streamUrl?: string }

@@ -208,20 +208,23 @@ app.get('/api/search', async (req, res) => {
   if (!ytAvailable) return res.status(503).json({ error: 'yt-dlp not available' })
 
   try {
-    const output = ytExec(`--print "%(id)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s" --flat-playlist --no-warnings "ytsearch15:${q.replace(/"/g, '\\"')}"`, { timeout: 20000 })
+    // Use --dump-json to get full metadata including uploader and thumbnail
+    const output = ytExec(`--flat-playlist --dump-json --no-warnings "ytsearch15:${q.replace(/"/g, '\\"')}"`, { timeout: 20000 })
+    const results = []
     const lines = output.trim().split('\n').filter(Boolean)
-    const results = lines.map(line => {
-      const [id, title, uploader, duration, ...rest] = line.split('|')
-      const thumbnail = rest.join('|') || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
-      return {
-        id: id || '',
-        title: title || 'Unknown',
-        channel: uploader || 'Unknown',
-        duration: parseInt(duration) || 0,
-        thumbnail,
-        url: `https://www.youtube.com/watch?v=${id}`,
-      }
-    }).filter(r => r.id)
+    for (const line of lines) {
+      try {
+        const item = JSON.parse(line)
+        results.push({
+          id: item.id || '',
+          title: item.title || 'Unknown',
+          channel: item.uploader || item.channel || 'Unknown',
+          duration: item.duration || 0,
+          thumbnail: item.thumbnail || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+          url: item.url || item.webpage_url || `https://www.youtube.com/watch?v=${item.id}`,
+        })
+      } catch {}
+    }
 
     // Try to preload first result
     if (results.length > 0) preloadVideo(results[0].id)

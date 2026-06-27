@@ -5,7 +5,7 @@ interface Track { id: string; title: string; artist: string; albumArt: string; d
 const fmt = (s: number) => s ? `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}` : '0:00'
 
 const WORKER_DOMAIN = 'nyu-rka.aditsopo76912.workers.dev'
-const CLOUD_SERVER = 'https://nyu-rka-server.up.railway.app'
+const CLOUD_SERVER = 'https://nyu-rrka-production.up.railway.app'
 const LOCAL_SERVER = 'http://192.168.100.10:3000'
 
 async function searchYouTube(query: string): Promise<Track[]> {
