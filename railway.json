@@ -5,6 +5,7 @@
   },
   "deploy": {
     "startCommand": "cd server && node index.js",
-    "healthcheckPath": "/api/ping"
+    "healthcheckPath": "/api/ping",
+    "healthcheckTimeout": 10
   }
 }

@@ -9,26 +9,34 @@ import QueueScreen from './src/screens/QueueScreen'
 const APP_VERSION = '1.0.2'
 const GITHUB_REPO = 'NutZwel/Nyu-rrka'
 const WORKER = 'nyu-rka.aditsopo76912.workers.dev'
+const CLOUD_SERVER = 'https://nyu-rka-server.up.railway.app'
+const LOCAL_SERVER = 'http://192.168.100.10:3000'
 
 interface Track { id: string; title: string; artist: string; albumArt: string; duration: number; streamUrl?: string }
 
 async function getStreamUrl(videoId: string): Promise<string | null> {
   // Source 1: Server lokal (yt-dlp — work kalo satu WiFi)
   try {
-    const r = await fetch('http://192.168.100.10:3000/api/stream/' + videoId)
+    const r = await fetch(LOCAL_SERVER + '/api/stream/' + videoId, { signal: AbortSignal.timeout(5000) })
     if (r.ok) { const d = await r.json(); if (d.streamUrl) return d.streamUrl }
   } catch {}
 
-  // Source 2: Cloudflare Worker
+  // Source 2: Cloud server (Railway) via hosted yt-dlp
   try {
-    const r = await fetch('https://' + WORKER + '/stream/' + videoId)
+    const r = await fetch(CLOUD_SERVER + '/api/stream/' + videoId, { signal: AbortSignal.timeout(10000) })
     if (r.ok) { const d = await r.json(); if (d.streamUrl) return d.streamUrl }
   } catch {}
 
-  // Source 3: Piped API
+  // Source 3: Cloudflare Worker
+  try {
+    const r = await fetch('https://' + WORKER + '/stream/' + videoId, { signal: AbortSignal.timeout(5000) })
+    if (r.ok) { const d = await r.json(); if (d.streamUrl) return d.streamUrl }
+  } catch {}
+
+  // Source 4: Piped API
   for (const inst of ['r4fo.com', 'kavin.rocks', 'leptons.xyz']) {
     try {
-      const r = await fetch('https://pipedapi.' + inst + '/streams/' + videoId)
+      const r = await fetch('https://pipedapi.' + inst + '/streams/' + videoId, { signal: AbortSignal.timeout(5000) })
       if (r.ok) {
         const d = await r.json()
         const a = d.audioStreams?.filter((s: any) => s.mimeType?.includes('mp4') || s.mimeType?.includes('webm'))
