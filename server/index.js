@@ -251,7 +251,8 @@ app.get('/api/stream/:id', async (req, res) => {
 
   try {
     // Get direct streaming URL
-    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio[ext=m4a]/bestaudio', '--get-url', '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
+    // Try bestaudio, fallback to any audio, then any format
+    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio/best', '--get-url', '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
     const streamUrl = await spawnOutput(cmd, args, 15000)
     const url = streamUrl.trim()
 
@@ -296,7 +297,7 @@ app.get('/api/stream-cached/:id', async (req, res) => {
   // Download and cache
   const tmpFile = path.join(__dirname, '..', 'temp', `nyu_${videoId}_${Date.now()}.m4a`)
   try {
-    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio[ext=m4a]/bestaudio', '-o', tmpFile, '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
+    const [cmd, ...args] = ytSpawnArgs(['-f', 'bestaudio/best', '-o', tmpFile, '--no-warnings', `https://youtube.com/watch?v=${videoId}`])
     await spawnOutput(cmd, args, 60000)
 
     if (fs.existsSync(tmpFile)) {
