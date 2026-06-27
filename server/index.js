@@ -46,9 +46,16 @@ function findYtDlp() {
   const tempDir = path.dirname(dlPath)
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
   console.log('[Server] Downloading yt-dlp...')
+
+  // On Linux use the static build (no python3 dependency)
+  const isWindows = process.platform === 'win32'
+  const dlUrl = isWindows
+    ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+    : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
+
   try {
-    execSync(`curl -#L -o "${dlPath}" https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp`, { timeout: 120000 })
-    if (process.platform !== 'win32') fs.chmodSync(dlPath, 0o755)
+    execSync(`curl -#L -o "${dlPath}" "${dlUrl}"`, { timeout: 120000 })
+    if (!isWindows) fs.chmodSync(dlPath, 0o755)
     execSync(`"${dlPath}" --version`, { stdio: 'pipe', timeout: 5000 })
     ytPath = dlPath
     ytAvailable = true
@@ -321,3 +328,4 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Server] Nyu'rka server running on port ${PORT}`)
   console.log(`[Server] yt-dlp: ${ytAvailable ? '✓' : '✗'}`)
 })
+
