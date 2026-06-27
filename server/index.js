@@ -24,9 +24,10 @@ function findYtDlp() {
   } catch {}
 
   // Coba ./temp/ dan ../temp/
+  const isWindows = process.platform === 'win32'
   const candidates = [
-    path.join(__dirname, 'temp', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'),
-    path.join(__dirname, '..', 'temp', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'),
+    path.join(__dirname, 'temp', isWindows ? 'yt-dlp.exe' : 'yt-dlp'),
+    path.join(__dirname, '..', 'temp', isWindows ? 'yt-dlp.exe' : 'yt-dlp'),
   ]
   for (const c of candidates) {
     if (fs.existsSync(c)) {
@@ -48,7 +49,6 @@ function findYtDlp() {
   console.log('[Server] Downloading yt-dlp...')
 
   // On Linux use the static build (no python3 dependency)
-  const isWindows = process.platform === 'win32'
   const dlUrl = isWindows
     ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
     : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
