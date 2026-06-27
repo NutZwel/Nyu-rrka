@@ -1,0 +1,2 @@
+[providers]
+apt = ["yt-dlp", "curl", "python3"]
