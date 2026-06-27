@@ -42,6 +42,9 @@ function findYtDlp() {
 
   // Download
   const dlPath = candidates[0]
+  // Ensure temp dir exists
+  const tempDir = path.dirname(dlPath)
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
   console.log('[Server] Downloading yt-dlp...')
   try {
     execSync(`curl -#L -o "${dlPath}" https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp`, { timeout: 120000 })
