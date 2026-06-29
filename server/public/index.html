@@ -7,7 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E♩%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="/apple-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 <title>Nyu'rka</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -188,7 +190,7 @@ function renderResults(results) {
   $('search-results').style.display='block'
   $('search-results').innerHTML = results.map(t => `
     <div class="result-item">
-      <img class="result-cover" src="${t.thumbnail}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 48 48\\'%3E%3Crect fill=\\'%23141414\\' width=\\'48\\' height=\\'48\\'/%3E%3Ctext x=\\'50%\\' y=\\'50%\\' text-anchor=\\'middle\\' dy=\\'.35em\\' fill=\\'%23333\\' font-size=\\'18\\'%3E♪%3C/text%3E%3C/svg%3E'">
+      <img class="result-cover" src="${t.thumbnail}" loading="lazy" onerror="this.src='/apple-icon.png'">
       <div class="result-info">
         <div class="result-title">${esc(t.title)}</div>
         <div class="result-meta">${esc(t.channel)} · ${fmt(t.duration)}</div>
