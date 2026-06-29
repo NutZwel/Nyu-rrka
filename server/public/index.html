@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<meta name="theme-color" content="#000">
+<meta name="theme-color" content="#121212">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
@@ -12,411 +12,373 @@
 <title>Nyu'rka</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body,#app{height:100%;background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif;overflow:hidden}
-input{font-family:inherit}
+html,body,#app{height:100%;background:#121212;color:#fff;font-family:-apple-system,system-ui,Helvetica,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
 
-/* ── Scrollbar ── */
+/* ── Slim scrollbar ── */
 ::-webkit-scrollbar{width:2px}
 ::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 
-/* ── Slider ── */
-input[type=range]{-webkit-appearance:none;appearance:none;height:3px;outline:none;cursor:pointer;background:rgba(255,255,255,.1);border-radius:2px;width:100%}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;border:none;opacity:0;transition:opacity.15s}
-input[type=range]:active::-webkit-slider-thumb,input[type=range]:hover::-webkit-slider-thumb{opacity:1}
+/* ── Range slider ── */
+input[type=range]{-webkit-appearance:none;appearance:none;height:2px;outline:none;cursor:pointer;background:rgba(255,255,255,.15);width:100%;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:0;height:0;border-radius:50%;background:#fff;transition:all.1s}
+input[type=range]:active::-webkit-slider-thumb{width:10px;height:10px}
 
-/* ── Main layout ── */
-.app{display:flex;flex-direction:column;height:100%}
-.main-content{flex:1;overflow:hidden;position:relative}
+/* ── Layout ── */
+#app{display:flex;flex-direction:column}
+.content{flex:1;overflow:hidden;position:relative}
 
 /* ── Screens ── */
 .screen{display:none;flex-direction:column;height:100%;position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .screen.active{display:flex}
-.screen-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0;flex-shrink:0}
-.screen-title{font-size:17px;font-weight:700;letter-spacing:-.3px}
-.screen-sub{font-size:13px;color:#888}
+.screen-title{padding:14px 16px 8px;font-size:22px;font-weight:700;letter-spacing:-.4px;flex-shrink:0}
 
-/* ── Bottom Nav ── */
-.nav{display:flex;background:#090909;border-top:1px solid #141414;flex-shrink:0;padding:2px 0 calc(2px + env(safe-area-inset-bottom));z-index:10}
-.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;background:0;border:0;color:#555;font-size:20px;padding:6px 0;cursor:pointer;transition:color.15s}
-.nav-btn.active{color:#fff}
-.nav-label{font-size:9px;font-weight:600;letter-spacing:.5px}
-
-/* ── Now Playing Bar ── */
-.np-bar{display:none;align-items:center;gap:10px;padding:8px 12px;background:#141414;cursor:pointer;flex-shrink:0;transition:background.15s;min-height:52px}
-.np-bar:active{background:#1A1A1A}
+/* ── Bottom bar ── */
+.np-bar{display:none;align-items:center;gap:10px;padding:8px 12px;background:#181818;cursor:pointer;flex-shrink:0;border-bottom:1px solid #282828;min-height:56px;position:relative}
 .np-bar.active{display:flex}
-.np-cover{width:40px;height:40px;border-radius:4px;flex-shrink:0;object-fit:cover;background:#222}
+.np-bar:active{background:#1e1e1e}
+.np-cover{width:40px;height:40px;border-radius:4px;flex-shrink:0;object-fit:cover;background:#282828}
 .np-info{flex:1;min-width:0}
-.np-title{font-size:13px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.np-artist{font-size:11px;color:#888;margin-top:1px}
-.np-icon{color:#888;font-size:18px;padding:6px;cursor:pointer;transition:color.15s}
-.np-icon:active{color:#fff}
-.np-bar-progress{position:absolute;bottom:0;left:0;height:2px;background:#1DB954;transition:width.3s;border-radius:0 2px 2px 0}
+.np-title{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-artist{font-size:11px;color:#aaa;margin-top:1px}
+.np-actions{display:flex;align-items:center;gap:8px}
+.np-icon{color:#aaa;font-size:20px;padding:4px;cursor:pointer}
+.np-bar-progress{position:absolute;top:0;left:0;height:2px;background:#1DB954;transition:width .2s}
 
-/* ── Player Screen (Spotify-style fullscreen) ── */
-.player-screen{display:flex;flex-direction:column;height:100%;padding:0 16px;position:relative}
-.player-screen .bg{position:absolute;inset:0;overflow:hidden}
-.player-screen .bg img{width:100%;height:100%;object-fit:cover;filter:blur(80px) brightness(.4);transform:scale(1.1);opacity:0;transition:opacity.6s}
-.player-screen .bg img.show{opacity:1}
-.player-top{display:flex;align-items:center;justify-content:space-between;padding:12px 0;position:relative;z-index:1}
-.player-top-btn{background:0;border:0;color:rgba(255,255,255,.6);font-size:16px;padding:8px;cursor:pointer;transition:color.15s}
-.player-top-btn:active{color:#fff}
-.player-top-title{font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px}
-.player-cover-wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;padding:8px 0}
-.player-cover{width:min(85vw,340px);height:min(85vw,340px);border-radius:8px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);background:#181818;transition:border-radius.3s}
-.player-cover.rounded{border-radius:50%}
+/* ── Nav ── */
+.nav{display:flex;background:#090909;flex-shrink:0;padding:4px 0 calc(4px + env(safe-area-inset-bottom));z-index:10}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:0;border:0;color:#555;font-size:18px;padding:4px 0;cursor:pointer;transition:color.15s}
+.nav-btn.active{color:#fff}
+.nav-label{font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+
+/* ── Player (full) ── */
+.player{display:flex;flex-direction:column;height:100%;padding:0 16px;position:relative}
+.player-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.player-bg img{width:100%;height:100%;object-fit:cover;filter:blur(60px) brightness(.35);transform:scale(1.2);opacity:0;transition:opacity.5s}
+.player-bg img.show{opacity:1}
+.player-top{display:flex;align-items:center;justify-content:space-between;padding:8px 0;position:relative;z-index:1;flex-shrink:0}
+.player-top-btn{background:0;border:0;color:rgba(255,255,255,.6);font-size:14px;padding:8px;cursor:pointer}
+.player-top-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.6)}
+
+.player-cover-wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;min-height:0;padding:4px 0}
+.player-cover{width:min(80vw,320px);height:min(80vw,320px);border-radius:4px;overflow:hidden;box-shadow:0 4px 60px rgba(0,0,0,.5);background:#181818;transition:border-radius.3s;position:relative}
+.player-cover.round{border-radius:50%}
 .player-cover img{width:100%;height:100%;object-fit:cover}
-.player-cover.rounded img{animation:spin 20s linear infinite;animation-play-state:paused}
-.player-cover.rounded.playing img{animation-play-state:running}
+.player-cover.round img{animation:spin 25s linear infinite;animation-play-state:paused}
+.player-cover.round.play img{animation-play-state:running}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.player-body{padding:8px 0 4px;position:relative;z-index:1}
-.player-body .info{margin-bottom:4px}
-.player-body .info .title{font-size:17px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.player-body .info .artist{font-size:13px;color:#aaa;margin-top:2px}
-.player-body .progress{margin-bottom:4px}
-.player-body .progress .bar{width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:2px;cursor:pointer;position:relative}
-.player-body .progress .bar .fill{height:100%;background:#fff;border-radius:2px;width:0;transition:width.1s;position:relative}
-.player-body .progress .bar .fill::after{content:'';position:absolute;right:-6px;top:-4.5px;width:12px;height:12px;border-radius:50%;background:#fff;opacity:0;transition:opacity.15s}
-.player-body .progress .bar:hover .fill::after{opacity:1}
-.player-body .progress .time{display:flex;justify-content:space-between;font-size:10px;color:#888;font-variant-numeric:tabular-nums;margin-top:3px}
-.player-body .controls{display:flex;align-items:center;justify-content:center;gap:24px;padding:8px 0 12px}
-.player-body .controls .btn{background:0;border:0;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;transition:all.15s;display:flex;padding:6px}
-.player-body .controls .btn:active{color:#fff;transform:scale(.92)}
-.player-body .controls .play{width:56px;height:56px;border-radius:50%;background:#1DB954;border:0;display:flex;align-items:center;justify-content:center;font-size:26px;color:#000;cursor:pointer;transition:transform.15s}
-.player-body .controls .play:active{transform:scale(.92)}
-.player-body .controls .shuffle{color:rgba(255,255,255,.4);font-size:14px}
-.player-body .controls .shuffle.on,.player-body .controls .loop.on{color:#1DB954}
-.player-body .controls .loop{color:rgba(255,255,255,.4);font-size:14px}
-.player-body .volume{display:flex;align-items:center;gap:8px;margin-top:2px}
-.player-body .volume span{font-size:12px;color:#888;min-width:20px;text-align:center}
+.player-body{position:relative;z-index:1;padding:8px 0 4px;flex-shrink:0}
+.player-body .track-info{margin-bottom:2px}
+.player-body .track-title{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-body .track-artist{font-size:12px;color:#aaa;margin-top:1px}
+.player-body .progress-wrap{margin:6px 0 2px}
+.player-body .progress-bar{width:100%;height:3px;background:rgba(255,255,255,.15);border-radius:2px;cursor:pointer;position:relative}
+.player-body .progress-fill{height:100%;background:#fff;border-radius:2px;width:0;position:relative;transition:width .1s}
+.player-body .progress-fill::after{content:'';position:absolute;right:-5px;top:-3.5px;width:10px;height:10px;border-radius:50%;background:#fff;opacity:0}
+.player-body .progress-bar:hover .progress-fill::after{opacity:1}
+.player-body .progress-time{display:flex;justify-content:space-between;font-size:10px;color:#888;margin-top:3px;font-variant-numeric:tabular-nums}
+.player-body .ctrls{display:flex;align-items:center;justify-content:center;gap:20px;padding:6px 0}
+.player-body .ctrls button{background:0;border:0;cursor:pointer;transition:all.15s;display:flex;align-items:center;justify-content:center}
+.player-body .ctrls .sml{color:rgba(255,255,255,.5);font-size:14px;padding:6px}
+.player-body .ctrls .sml.on{color:#1DB954}
+.player-body .ctrls .med{color:rgba(255,255,255,.7);font-size:22px;padding:8px}
+.player-body .ctrls .med:active{color:#fff;transform:scale(.92)}
+.player-body .ctrls .big{width:56px;height:56px;border-radius:50%;background:#fff;color:#000;font-size:26px}
+.player-body .ctrls .big:active{transform:scale(.92)}
+.player-body .vol{margin-top:2px;display:flex;align-items:center;gap:6px}
+.player-body .vol span{font-size:10px;color:#888;min-width:18px;text-align:center}
+
+/* ── Empty player ── */
+.player-empty{align-items:center;justify-content:center;display:flex;flex-direction:column;text-align:center;gap:8px;position:relative;z-index:1;height:100%}
+.player-empty .big-icon{width:200px;height:200px;border-radius:50%;background:#181818;display:flex;align-items:center;justify-content:center;font-size:60px;color:#333;margin-bottom:4px}
+.player-empty h1{font-size:22px;font-weight:700;letter-spacing:-.4px}
+.player-empty p{font-size:13px;color:#888}
+.player-empty button{margin-top:12px;background:rgba(255,255,255,.08);border:0;color:#fff;font-size:14px;font-weight:600;padding:12px 32px;border-radius:20px;cursor:pointer}
 
 /* ── Search ── */
-.search-input-wrap{padding:4px 16px 8px;flex-shrink:0}
-.search-input{width:100%;background:#1A1A1A;border:0;border-radius:8px;color:#fff;font-size:15px;padding:12px 16px;outline:none}
-.search-input::placeholder{color:#555}
-.search-input:focus{background:#222}
+.search-header{padding:12px 16px;flex-shrink:0}
+.search-header input{width:100%;background:#282828;border:0;border-radius:8px;color:#fff;font-size:14px;padding:10px 14px;outline:none}
+.search-header input::placeholder{color:#666}
+.search-header input:focus{background:#333;outline:1px solid #555}
 
-.result-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background.15s}
-.result-item:active{background:#111}
-.result-item .cover{width:44px;height:44px;border-radius:4px;flex-shrink:0;object-fit:cover;background:#1A1A1A}
-.result-item .info{flex:1;min-width:0}
-.result-item .info .title{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.result-item .info .meta{font-size:12px;color:#888;margin-top:1px}
-.result-item .add-btn{background:0;border:0;color:#555;font-size:18px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all.15s}
-.result-item .add-btn:active{background:rgba(29,185,84,.2);color:#1DB954}
+.search-res{flex:1;overflow-y:auto;padding-bottom:8px}
+.search-item{display:flex;align-items:center;gap:10px;padding:6px 16px;cursor:pointer;transition:background.15s}
+.search-item:active{background:#1A1A1A}
+.search-item .art{width:44px;height:44px;border-radius:4px;flex-shrink:0;object-fit:cover;background:#282828}
+.search-item .info{flex:1;min-width:0}
+.search-item .info .t{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-item .info .m{font-size:11px;color:#aaa;margin-top:1px}
+.search-item .add{background:0;border:0;color:#555;font-size:16px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.search-item .add:active{background:rgba(29,185,84,.15);color:#1DB954}
+
+.search-empty,.search-load{flex:1;display:flex;align-items:center;justify-content:center;color:#555;font-size:13px}
+.search-load{display:none}
 
 /* ── Queue ── */
-.queue-edit-btn{background:0;border:0;color:#888;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background.15s}
-.queue-edit-btn:active{background:#1A1A1A}
-.queue-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background.15s}
-.queue-item:active{background:#111}
-.queue-item.active{background:#111}
-.queue-item .num{font-size:12px;color:#555;width:16px;text-align:center;flex-shrink:0;font-variant-numeric:tabular-nums}
-.queue-item .cover{width:36px;height:36px;border-radius:4px;flex-shrink:0;object-fit:cover;background:#1A1A1A}
+.queue-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;flex-shrink:0}
+.queue-hdr h2{font-size:14px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.queue-clear{background:0;border:0;color:#888;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px}
+.queue-clear:active{background:#1A1A1A}
+.queue-list{flex:1;overflow-y:auto;padding-bottom:8px}
+.queue-item{display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;transition:background.15s}
+.queue-item:active{background:#1A1A1A}
+.queue-item.cur{background:#0E0E0E}
+.queue-item .num{font-size:11px;color:#555;width:16px;text-align:center;flex-shrink:0;font-variant-numeric:tabular-nums}
+.queue-item .art{width:34px;height:34px;border-radius:4px;flex-shrink:0;object-fit:cover;background:#282828}
 .queue-item .info{flex:1;min-width:0}
-.queue-item .info .title{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.queue-item .info .meta{font-size:11px;color:#888;margin-top:1px}
-.queue-item .del{background:0;border:0;color:#333;font-size:14px;width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+.queue-item .info .t{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-item .info .m{font-size:10px;color:#888;margin-top:1px}
+.queue-item .del{background:0;border:0;color:#333;font-size:12px;padding:6px;cursor:pointer}
 .queue-item .del:active{color:#888}
-.queue-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:8px;color:#555;font-size:14px}
-.queue-empty .icon{font-size:40px;color:#1A1A1A}
+.queue-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#555;font-size:13px}
 
 /* ── Toast ── */
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#1DB954;color:#000;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transition:all.3s cubic-bezier(.16,1,.3,1);z-index:99;pointer-events:none}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(16px);background:#1DB954;color:#000;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:600;opacity:0;transition:all.25s cubic-bezier(.16,1,.3,1);z-index:99;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
-<div class="app" id="app">
-  <div class="main-content">
+<div id="app">
 
-    <!-- Player Screen -->
-    <div class="screen active" id="screen-player">
-      <div class="player-screen" id="player-content">
-        <div class="bg"><img id="player-bg" src=""></div>
+<div class="content">
 
-        <!-- Empty state -->
-        <div id="player-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:12px;position:relative;z-index:1">
-          <div style="width:200px;height:200px;border-radius:50%;background:linear-gradient(135deg,#1A1A1A,#111);display:flex;align-items:center;justify-content:center;font-size:60px;color:#2A2A2A;margin-bottom:8px">♪</div>
-          <div style="font-size:20px;font-weight:700;letter-spacing:-.5px;color:#eee">Nothing playing</div>
-          <div style="font-size:14px;color:#666">Find something to listen to</div>
-          <button class="player-top-btn" onclick="switchScreen('search')" style="margin-top:12px;background:rgba(255,255,255,.1);border-radius:20px;padding:12px 32px;color:#fff;font-size:14px;font-weight:600">Search</button>
-        </div>
+<!-- Player -->
+<div class="screen active" id="s-player">
+<div class="player" id="player-root">
+<div class="player-bg"><img id="bg-img" src=""></div>
 
-        <!-- Active player -->
-        <div id="player-active" style="display:none;flex-direction:column;height:100%">
-          <div class="player-top">
-            <button class="player-top-btn" onclick="collapsePlayer()">▼</button>
-            <span class="player-top-title">Now Playing</span>
-            <button class="player-top-btn" onclick="switchScreen('queue')">≡</button>
-          </div>
-          <div class="player-cover-wrap">
-            <div class="player-cover" id="player-cover-el">
-              <img id="player-cover-img" src="" onerror="this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1A1A1A\\'><span style=\\'font-size:80px;color:#333\\'>♪</span></div>'">
-            </div>
-          </div>
-          <div class="player-body">
-            <div class="info">
-              <div class="title" id="player-title">-</div>
-              <div class="artist" id="player-artist">-</div>
-            </div>
-            <div class="progress">
-              <div class="bar" onclick="seekBar(event)">
-                <div class="fill" id="seek-fill" style="width:0%"></div>
-              </div>
-              <div class="time">
-                <span id="player-current">0:00</span>
-                <span id="player-duration">-:--</span>
-              </div>
-            </div>
-            <div class="controls">
-              <button class="btn shuffle" id="shuffle-btn" onclick="toggleShuffle()" style="font-size:14px">⇄</button>
-              <button class="btn" onclick="prevTrack()">⏮</button>
-              <button class="play" id="player-play-btn" onclick="togglePlay()">▶</button>
-              <button class="btn" onclick="nextTrack()">⏭</button>
-              <button class="btn loop" id="loop-btn" onclick="toggleLoop()" style="font-size:14px">↺</button>
-            </div>
-            <div class="volume">
-              <span id="vol-icon">🔊</span>
-              <input type="range" min="0" max="1" step="0.01" value="0.7" oninput="setVolume(+this.value)" style="flex:1">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+<div id="player-empty" class="player-empty" style="display:flex">
+  <div class="big-icon">♪</div>
+  <h1>Nothing playing</h1>
+  <p>Search for something to play</p>
+  <button onclick="switchScreen('search')">Search</button>
+</div>
 
-    <!-- Search Screen -->
-    <div class="screen" id="screen-search">
-      <div class="screen-header">
-        <span class="screen-title">Search</span>
-        <span></span>
-      </div>
-      <div class="search-input-wrap">
-        <input class="search-input" id="search-input" placeholder="What do you want to listen to?" autocomplete="off">
-      </div>
-      <div id="search-empty" style="flex:1;display:flex;align-items:center;justify-content:center;color:#555;font-size:14px">Search for songs</div>
-      <div id="search-loading" style="flex:1;display:none;align-items:center;justify-content:center;color:#555">Searching...</div>
-      <div id="search-results" style="flex:1;overflow-y:auto;padding-bottom:8px;display:none"></div>
-    </div>
-
-    <!-- Queue Screen -->
-    <div class="screen" id="screen-queue">
-      <div class="screen-header">
-        <span class="screen-title">Queue</span>
-        <button class="queue-edit-btn" id="queue-clear-btn" onclick="clearQueue()">Clear</button>
-      </div>
-      <div id="queue-list" style="flex:1;overflow-y:auto;padding-top:4px"></div>
-      <div id="queue-empty" class="queue-empty" style="display:none">
-        <span class="icon">≡</span>
-        <span>Your queue is empty</span>
-      </div>
-    </div>
-
+<div id="player-active" style="display:none;flex-direction:column;height:100%">
+  <div class="player-top">
+    <button class="player-top-btn" onclick="switchScreen('search')">←</button>
+    <span class="player-top-label">Now Playing</span>
+    <button class="player-top-btn" onclick="toggleArtShape()" style="font-size:12px">⭑</button>
   </div>
-
-  <!-- Now Playing Bar -->
-  <div class="np-bar" id="np-bar" onclick="expandPlayer()">
-    <div id="np-bar-progress" class="np-bar-progress" style="width:0%"></div>
-    <img class="np-cover" id="np-cover" src="">
-    <div class="np-info">
-      <div class="np-title" id="np-title">-</div>
-      <div class="np-artist" id="np-artist">-</div>
+  <div class="player-cover-wrap">
+    <div class="player-cover round play" id="art-el">
+      <img id="art-img" src="">
     </div>
-    <span class="np-icon" id="np-play-icon" onclick="event.stopPropagation();togglePlay()">▶</span>
-    <span class="np-icon" onclick="event.stopPropagation();nextTrack()">⏭</span>
   </div>
-
-  <!-- Bottom Nav -->
-  <div class="nav">
-    <button class="nav-btn active" data-screen="player" onclick="switchScreen('player')">
-      ♩<span class="nav-label">Player</span>
-    </button>
-    <button class="nav-btn" data-screen="search" onclick="switchScreen('search')">
-      ⌕<span class="nav-label">Search</span>
-    </button>
-    <button class="nav-btn" data-screen="queue" onclick="switchScreen('queue')">
-      ≡<span class="nav-label">Queue</span>
-    </button>
+  <div class="player-body">
+    <div class="track-info">
+      <div class="track-title" id="p-title">-</div>
+      <div class="track-artist" id="p-artist">-</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" onclick="seekBar(event)">
+        <div class="progress-fill" id="seek-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-time">
+        <span id="p-curr">0:00</span>
+        <span id="p-dur">-:--</span>
+      </div>
+    </div>
+    <div class="ctrls">
+      <button class="sml" id="s-btn" onclick="toggleShuffle()" style="letter-spacing:-2px">⇄</button>
+      <button class="med" onclick="prevTrack()">⏮</button>
+      <button class="big" id="play-btn" onclick="togglePlay()">▶</button>
+      <button class="med" onclick="nextTrack()">⏭</button>
+      <button class="sml" id="l-btn" onclick="toggleLoop()">↺</button>
+    </div>
+    <div class="vol">
+      <span id="v-icon">🔊</span>
+      <input type="range" min="0" max="1" step="0.01" value="0.7" oninput="setV(+this.value)">
+    </div>
   </div>
 </div>
+</div>
+</div>
+
+<!-- Search -->
+<div class="screen" id="s-search">
+<div class="search-header">
+  <input id="search-input" placeholder="Search songs, artists..." autocomplete="off">
+</div>
+<div id="search-empty" class="search-empty">Search for music</div>
+<div id="search-load" class="search-load">Searching...</div>
+<div id="search-res" class="search-res" style="display:none"></div>
+</div>
+
+<!-- Queue -->
+<div class="screen" id="s-queue">
+<div class="queue-hdr">
+  <h2>Queue</h2>
+  <button class="queue-clear" id="q-clear" onclick="clearQ()">Clear</button>
+</div>
+<div id="q-list" class="queue-list"></div>
+<div id="q-empty" class="queue-empty" style="display:none"><span style="font-size:32px;color:#1A1A1A">≡</span><span>Queue is empty</span></div>
+</div>
+
+</div>
+
+<!-- Now Playing Bar -->
+<div class="np-bar" id="np-bar" onclick="expandPlayer()">
+<div class="np-bar-progress" id="np-progress" style="width:0%"></div>
+<img class="np-cover" id="np-cover" src="">
+<div class="np-info">
+  <div class="np-title" id="np-title">-</div>
+  <div class="np-artist" id="np-artist">-</div>
+</div>
+<div class="np-actions">
+  <span class="np-icon" id="np-play" onclick="event.stopPropagation();togglePlay()">▶</span>
+</div>
+</div>
+
+<!-- Nav -->
+<div class="nav">
+<button class="nav-btn active" data-s="player" onclick="switchScreen('player')">♩<span class="nav-label">Player</span></button>
+<button class="nav-btn" data-s="search" onclick="switchScreen('search')">⌕<span class="nav-label">Search</span></button>
+<button class="nav-btn" data-s="queue" onclick="switchScreen('queue')">≡<span class="nav-label">Queue</span></button>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const API = ''
-let queue=[], qIdx=-1, currentTrack=null
-let isPlaying=false, vol=.7, loop='none', shuffle=false
-let loadingTrack=false, playerExpanded=true
-const audio=new Audio(); audio.preload='auto'
-const fmt=s=>s?Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'):'0:00'
-const $=id=>document.getElementById(id)
+const API=''
+let q=[],qi=-1,cur=null,play=false,vol=.7,lp='none',sf=false,loading=false,artRound=true
+const a=new Audio();a.preload='auto'
+const $=x=>document.getElementById(x)
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c])
-
+const fmt=s=>s?Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'):'0:00'
 // Toast
-let tmr
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(tmr);tmr=setTimeout(()=>t.classList.remove('show'),2000)}
+let tm
+const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tm);tm=setTimeout(()=>t.classList.remove('show'),1800)}
 
 // Screen switching
 function switchScreen(s){
   document.querySelectorAll('.screen').forEach(v=>v.classList.remove('active'))
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'))
-  $(`screen-${s}`).classList.add('active')
-  document.querySelector(`.nav-btn[data-screen="${s}"]`).classList.add('active')
-  if(s==='search') setTimeout(()=>$('search-input').focus(),100)
-  if(s!=='player'&&playerExpanded){playerExpanded=false;$('#player-content').style.overflowY='auto'}
-  else if(s==='player') expandPlayer()
+  $(`s-${s}`).classList.add('active')
+  document.querySelector(`.nav-btn[data-s="${s}"]`).classList.add('active')
+  if(s==='search')setTimeout(()=>$('search-input').focus(),200)
+  if(s!=='player'){if(artRound){artRound=false;$('art-el').classList.remove('round')}}else{artRound=true;$('art-el').classList.add('round')}
 }
-function expandPlayer(){playerExpanded=true;$('#player-content').style.overflowY='hidden';switchScreen('player')}
-function collapsePlayer(){playerExpanded=false;switchScreen('search')}
+function expandPlayer(){switchScreen('player')}
+
+// Toggle art shape
+function toggleArtShape(){artRound=!artRound;$('art-el').classList.toggle('round',artRound);toast(artRound?'Vinyl mode':'Square mode')}
 
 // Search
 let st
-$('search-input').addEventListener('input',e=>{
-  clearTimeout(st);const q=e.target.value.trim()
-  if(q.length<3){$('search-results').style.display='none';$('search-empty').style.display='flex';return}
-  st=setTimeout(()=>doSearch(q),350)
-})
+$('search-input').addEventListener('input',e=>{clearTimeout(st);const q=e.target.value.trim();if(q.length<3){$('search-res').style.display='none';$('search-empty').style.display='flex';return}st=setTimeout(()=>doSearch(q),300)})
 $('search-input').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(st);doSearch(e.target.value.trim())}})
-
 async function doSearch(q){
-  $('search-empty').style.display='none';$('search-loading').style.display='flex';$('search-loading').textContent='Searching...'
-  $('search-results').style.display='none'
-  try{const r=await fetch(API+'/api/search?q='+encodeURIComponent(q));const d=await r.json();renderResults(d)}
-  catch{$('search-loading').textContent='Search failed'}
+  $('search-empty').style.display='none';$('search-load').style.display='flex';$('search-load').textContent='Searching...';$('search-res').style.display='none'
+  try{const r=await fetch(API+'/api/search?q='+encodeURIComponent(q));const d=await r.json();renderRes(d)}catch{$('search-load').textContent='Failed'}
 }
-
-function renderResults(r){
-  $('search-loading').style.display='none'
-  if(!r.length){$('search-loading').textContent='No results';$('search-loading').style.display='flex';return}
-  $('search-results').style.display='block'
-  $('search-results').innerHTML=r.map((t,i)=>`
-    <div class="result-item" style="animation-delay:${i*30}ms">
-      <img class="cover" src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'">
-      <div class="info">
-        <div class="title">${esc(t.title)}</div>
-        <div class="meta">${esc(t.channel)} · ${fmt(t.duration)}</div>
-      </div>
-      <button class="add-btn" data-action="q">+</button>
-    </div>`).join('')
-  $('search-results').querySelectorAll('.result-item').forEach((el,i)=>{
-    el.querySelector('.add-btn').onclick=e=>{e.stopPropagation();addToQueue(r[i]);toast('Added to queue')}
-    el.onclick=()=>playTrack(r[i],queue.length)
+function renderRes(r){
+  $('search-load').style.display='none'
+  if(!r.length){$('search-load').textContent='No results';$('search-load').style.display='flex';return}
+  $('search-res').style.display='block'
+  $('search-res').innerHTML=r.map((t,i)=>`<div class="search-item">
+    <img class="art" src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'">
+    <div class="info"><div class="t">${esc(t.title)}</div><div class="m">${esc(t.channel)} · ${fmt(t.duration)}</div></div>
+    <button class="add">+</button></div>`).join('')
+  $('search-res').querySelectorAll('.search-item').forEach((el,i)=>{
+    el.querySelector('.add').onclick=e=>{e.stopPropagation();addQ(r[i]);toast('Added to queue')}
+    el.onclick=()=>play(r[i],q.length)
   })
 }
 
 // Queue
-function addToQueue(t){queue.push(t);if(queue.length===1&&!currentTrack){playTrack(t,0);return}renderQueue();toast('Added to queue')}
-function renderQueue(){
-  const list=$('queue-list'),empty=$('queue-empty')
-  $('queue-clear-btn').style.display=queue.length?'block':'none'
-  if(!queue.length){list.innerHTML='';empty.style.display='flex';return}
-  empty.style.display='none'
-  list.innerHTML=queue.map((t,i)=>`
-    <div class="queue-item${i===qIdx?' active':''}">
-      <span class="num">${i+1}</span>
-      <img class="cover" src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'">
-      <div class="info">
-        <div class="title">${esc(t.title)}</div>
-        <div class="meta">${esc(t.channel)} · ${fmt(t.duration)}</div>
-      </div>
-      <button class="del" onclick="event.stopPropagation();removeQueue(${i})">✕</button>
-    </div>`).join('')
-  list.querySelectorAll('.queue-item').forEach((el,i)=>{el.onclick=()=>{if(i!==qIdx||!currentTrack)playTrack(queue[i],i)}})
+function addQ(t){q.push(t);if(q.length===1&&!cur){play(t,0);return}renderQ()}
+function renderQ(){
+  const list=$('q-list'),e=$('q-empty');$('q-clear').style.display=q.length?'block':'none'
+  if(!q.length){list.innerHTML='';e.style.display='flex';return}
+  e.style.display='none'
+  list.innerHTML=q.map((t,i)=>`<div class="queue-item${i===qi?' cur':''}">
+    <span class="num">${i+1}</span>
+    <img class="art" src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'">
+    <div class="info"><div class="t">${esc(t.title)}</div><div class="m">${esc(t.channel)}</div></div>
+    <button class="del" onclick="event.stopPropagation();delQ(${i})">✕</button></div>`).join('')
+  list.querySelectorAll('.queue-item').forEach((el,i)=>{el.onclick=()=>{if(i!==qi||!cur)play(q[i],i)}})
 }
-function removeQueue(i){queue.splice(i,1);if(i<qIdx)qIdx--;else if(i===qIdx){qIdx=-1;currentTrack=null;updatePlayer();$('queue-clear-btn').style.display='none'}renderQueue()}
-function clearQueue(){queue=[];qIdx=-1;currentTrack=null;audio.pause();audio.removeAttribute('src');audio.load();isPlaying=false;loadingTrack=false;updatePlayer();renderQueue();toast('Queue cleared')}
+function delQ(i){q.splice(i,1);if(i<qi)qi--;else if(i===qi){qi=-1;cur=null;upd();$('q-clear').style.display='none'}renderQ()}
+function clearQ(){q=[];qi=-1;cur=null;a.pause();a.removeAttribute('src');a.load();play=false;loading=false;upd();renderQ();toast('Cleared')}
 
-// Shuffle/Loop
-function toggleShuffle(){shuffle=!shuffle;$('shuffle-btn').classList.toggle('on',shuffle);toast(shuffle?'Shuffle on':'Shuffle off')}
-function toggleLoop(){const m=['none','all','one'];const i=m.indexOf(loop);loop=m[(i+1)%m.length];$('loop-btn').classList.toggle('on',loop!=='none');toast(loop==='none'?'Loop off':loop==='all'?'Loop all':'Loop one')}
+// Controls
+function toggleShuffle(){sf=!sf;$('s-btn').classList.toggle('on',sf);toast(sf?'Shuffle on':'Shuffle off')}
+function toggleLoop(){const m=['none','all','one'];lp=m[(m.indexOf(lp)+1)%m.length];$('l-btn').classList.toggle('on',lp!=='none');toast(lp==='none'?'Loop off':lp==='all'?'Loop all':'Loop one')}
+function setV(v){vol=v;a.volume=v;$('v-icon').textContent=v===0?'🔇':v<.5?'🔉':'🔊'}
+setV(.7)
 
 // Player
-function playTrack(t,idx){
-  if(idx!==undefined&&idx>=0)qIdx=idx
-  else if(!queue.length||queue[queue.length-1].id!==t.id){queue.push(t);qIdx=queue.length-1}
-  else qIdx=queue.indexOf(t)
-  currentTrack=t;loadingTrack=false
-  renderQueue();updatePlayer();startStream(t.id);expandPlayer()
+function play(t,idx){
+  if(idx!==undefined&&idx>=0)qi=idx
+  else if(!q.length||q[q.length-1].id!==t.id){q.push(t);qi=q.length-1}
+  else qi=q.indexOf(t)
+  cur=t;loading=false;renderQ();upd();stream(t.id)
 }
-
-function updatePlayer(){
-  if(!currentTrack){$('player-empty').style.display='flex';$('player-active').style.display='none';$('np-bar').classList.remove('active');return}
+function upd(){
+  if(!cur){$('player-empty').style.display='flex';$('player-active').style.display='none';$('np-bar').classList.remove('active');return}
   $('player-empty').style.display='none';$('player-active').style.display='flex';$('np-bar').classList.add('active')
-  const img=currentTrack.thumbnail||''
-  $('player-cover-img').src=img
-  $('player-bg').src=img;$('player-bg').className=img?'show':''
-  $('player-title').textContent=currentTrack.title
-  $('player-artist').textContent=currentTrack.channel
-  $('np-cover').src=img
-  $('np-title').textContent=currentTrack.title
-  $('np-artist').textContent=currentTrack.channel
-  $('player-cover-el').classList.remove('rounded','playing')
-  updateMediaSession()
+  const img=cur.thumbnail||''
+  $('art-img').src=img;$('bg-img').src=img;$('bg-img').className=img?'show':''
+  $('p-title').textContent=cur.title;$('p-artist').textContent=cur.channel
+  $('np-cover').src=img;$('np-title').textContent=cur.title;$('np-artist').textContent=cur.channel
+  updMediaSession()
 }
-
-function startStream(id){
-  loadingTrack=true;$('player-play-btn').textContent='⏳';isPlaying=false
+function stream(id){
+  loading=true;$('play-btn').textContent='⏳';play=false
   if('mediaSession'in navigator)navigator.mediaSession.playbackState='none'
-  audio.pause();audio.removeAttribute('src');audio.load()
-  audio.src=API+'/api/stream/'+id;audio.load()
+  a.pause();a.removeAttribute('src');a.load()
+  a.src=API+'/api/stream/'+id;a.load()
   let fired=false
-  audio.addEventListener('canplay',function cp(){audio.removeEventListener('canplay',cp);fired=true;if(!loadingTrack)return;loadingTrack=false;doPlay()},{once:true})
-  audio.addEventListener('error',function er(){audio.removeEventListener('error',er);if(!loadingTrack)return;loadingTrack=false;$('player-play-btn').textContent='▶';toast('Skipping...');setTimeout(nextTrack,1500)},{once:true})
-  setTimeout(()=>{if(loadingTrack&&!fired){loadingTrack=false;$('player-play-btn').textContent='▶';toast('Timed out');setTimeout(nextTrack,1500)}},35000)
+  a.addEventListener('canplay',function cp(){a.removeEventListener('canplay',cp);fired=true;if(!loading)return;loading=false;doPlay()},{once:true})
+  a.addEventListener('error',function er(){a.removeEventListener('error',er);if(!loading)return;loading=false;$('play-btn').textContent='▶';toast('Error, skipping...');setTimeout(nxt,1500)},{once:true})
+  setTimeout(()=>{if(loading&&!fired){loading=false;$('play-btn').textContent='▶';toast('Timeout');setTimeout(nxt,1500)}},35000)
 }
-
 function doPlay(){
-  audio.play().catch(()=>setTimeout(()=>audio.play().catch(()=>{if(!loadingTrack)return;loadingTrack=false;$('player-play-btn').textContent='▶';toast('Play failed');setTimeout(nextTrack,1500)}),500))
-  isPlaying=true;$('player-play-btn').textContent='⏸';$('np-play-icon').textContent='⏸'
-  $('player-cover-el').classList.add('rounded','playing')
+  a.play().catch(()=>setTimeout(()=>a.play().catch(()=>{if(!loading)return;loading=false;$('play-btn').textContent='▶';toast('Play failed');setTimeout(nxt,1500)}),500))
+  play=true;$('play-btn').innerHTML='⏸';$('np-play').textContent='⏸'
 }
-
 function togglePlay(){
-  if(!currentTrack)return
-  if(isPlaying){audio.pause();$('player-play-btn').textContent='▶';$('np-play-icon').textContent='▶';$('player-cover-el').classList.remove('playing');if('mediaSession'in navigator)navigator.mediaSession.playbackState='paused'}
-  else{audio.play().catch(()=>{});$('player-play-btn').textContent='⏸';$('np-play-icon').textContent='⏸';$('player-cover-el').classList.add('playing');if('mediaSession'in navigator)navigator.mediaSession.playbackState='playing'}
-  isPlaying=!isPlaying
+  if(!cur)return
+  if(play){a.pause();$('play-btn').innerHTML='▶';$('np-play').textContent='▶';if('mediaSession'in navigator)navigator.mediaSession.playbackState='paused'}
+  else{a.play().catch(()=>{});$('play-btn').innerHTML='⏸';$('np-play').textContent='⏸';if('mediaSession'in navigator)navigator.mediaSession.playbackState='playing'}
+  play=!play
 }
-
-function nextTrack(){
-  if(!queue.length)return;loadingTrack=false;audio.pause()
-  if(loop==='one'){audio.currentTime=0;doPlay();return}
-  let ni=shuffle?Math.floor(Math.random()*queue.length):qIdx<queue.length-1?qIdx+1:0
-  playTrack(queue[ni],ni)
+function nxt(){
+  if(!q.length)return;loading=false;a.pause()
+  if(lp==='one'){a.currentTime=0;doPlay();return}
+  const ni=sf?Math.floor(Math.random()*q.length):qi<q.length-1?qi+1:0
+  play(q[ni],ni)
 }
-function prevTrack(){if(!queue.length||qIdx<=0)return;loadingTrack=false;audio.pause();playTrack(queue[qIdx-1],qIdx-1)}
-
-function seekBar(e){const r=e.currentTarget.getBoundingClientRect();const p=(e.clientX-r.left)/r.width;if(audio.duration)audio.currentTime=p*audio.duration}
-function setVolume(v){vol=v;audio.volume=v}
-setVolume(.7)
+function prv(){if(!q.length||qi<=0)return;loading=false;a.pause();play(q[qi-1],qi-1)}
+function seekBar(e){const r=e.currentTarget.getBoundingClientRect();const p=(e.clientX-r.left)/r.width;if(a.duration)a.currentTime=p*a.duration}
 
 // Media Session
-function updateMediaSession(){
-  if(!('mediaSession'in navigator)||!currentTrack)return
-  navigator.mediaSession.metadata=new MediaMetadata({title:currentTrack.title,artist:currentTrack.channel,album:'',artwork:[{src:currentTrack.thumbnail||'/apple-icon.png',sizes:'512x512',type:'image/png'}]})
-  navigator.mediaSession.playbackState=isPlaying?'playing':'paused'
+function updMediaSession(){
+  if(!('mediaSession'in navigator)||!cur)return
+  navigator.mediaSession.metadata=new MediaMetadata({title:cur.title,artist:cur.channel,album:'',artwork:[{src:cur.thumbnail||'/apple-icon.png',sizes:'512x512',type:'image/png'}]})
+  navigator.mediaSession.playbackState=play?'playing':'paused'
   navigator.mediaSession.setActionHandler('play',()=>togglePlay())
   navigator.mediaSession.setActionHandler('pause',()=>togglePlay())
-  navigator.mediaSession.setActionHandler('nexttrack',()=>nextTrack())
-  navigator.mediaSession.setActionHandler('previoustrack',()=>prevTrack())
-  navigator.mediaSession.setActionHandler('seekto',d=>{if(audio.duration&&d.seekTime)audio.currentTime=d.seekTime})
+  navigator.mediaSession.setActionHandler('nexttrack',()=>nxt())
+  navigator.mediaSession.setActionHandler('previoustrack',()=>prv())
+  navigator.mediaSession.setActionHandler('seekto',d=>{if(a.duration&&d.seekTime)a.currentTime=d.seekTime})
 }
 
 // Audio events
-audio.addEventListener('timeupdate',()=>{
-  if(!audio.duration)return
-  const p=audio.currentTime/audio.duration*100
-  $('seek-fill').style.width=p+'%'
-  $('np-bar-progress').style.width=p+'%'
-  $('player-current').textContent=fmt(audio.currentTime)
-  $('player-duration').textContent=fmt(audio.duration)
-  if('mediaSession'in navigator){try{navigator.mediaSession.setPositionState({duration:audio.duration,playbackRate:1,position:audio.currentTime})}catch{}}
+a.addEventListener('timeupdate',()=>{
+  if(!a.duration)return
+  const p=a.currentTime/a.duration*100
+  $('seek-fill').style.width=p+'%';$('np-progress').style.width=p+'%'
+  $('p-curr').textContent=fmt(a.currentTime);$('p-dur').textContent=fmt(a.duration)
+  if('mediaSession'in navigator){try{navigator.mediaSession.setPositionState({duration:a.duration,playbackRate:1,position:a.currentTime})}catch{}}
 })
-audio.addEventListener('ended',()=>{if(loop==='one'){audio.currentTime=0;audio.play().catch(()=>{});return}isPlaying=false;nextTrack()})
-audio.addEventListener('loadedmetadata',()=>{$('player-duration').textContent=fmt(audio.duration)})
-audio.addEventListener('error',()=>{$('player-play-btn').textContent='▶';$('np-play-icon').textContent='▶';isPlaying=false})
+a.addEventListener('ended',()=>{if(lp==='one'){a.currentTime=0;a.play().catch(()=>{});return}play=false;nxt()})
+a.addEventListener('loadedmetadata',()=>{$('p-dur').textContent=fmt(a.duration)})
+a.addEventListener('error',()=>{$('play-btn').innerHTML='▶';$('np-play').textContent='▶';play=false})
 
-renderQueue()
+renderQ()
 toast('♩ Nyu\'rka')
 </script>
 </body>
