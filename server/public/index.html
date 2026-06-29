@@ -340,8 +340,25 @@ function togglePlay(){
 function nxt(){
   if(!q.length)return;loading=false;a.pause()
   if(lp==='one'){a.currentTime=0;doPlay();return}
-  const ni=sf?Math.floor(Math.random()*q.length):qi<q.length-1?qi+1:0
-  playAt(ni)
+
+  // Kalo masih ada lagu berikutnya di queue, play
+  if (qi < q.length - 1) {
+    const ni = sf ? Math.floor(Math.random() * (q.length - qi - 1)) + qi + 1 : qi + 1
+    playAt(ni)
+    return
+  }
+
+  // Queue abis — auto-recommend dulu baru play
+  autoRecommend().then(() => {
+    if (q.length > 0 && qi < q.length - 1) {
+      playAt(qi + 1)
+    } else {
+      toast('No more recommendations')
+      playing = false
+      $('play-btn').textContent = '▶'
+      $('np-play').textContent = '▶'
+    }
+  })
 }
 function prevTrack(){if(!q.length||qi<=0)return;loading=false;a.pause();playAt(qi-1)}
 function seekTo(e){const r=e.currentTarget.getBoundingClientRect();const p=(e.clientX-r.left)/r.width;if(a.duration)a.currentTime=p*a.duration}
@@ -447,21 +464,10 @@ async function autoRecommend() {
   recLoading = false
 }
 
-// Panggil auto-recommend pas stream selesai
 a.addEventListener('ended', () => {
   if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
   playing = false
-  // Kalo masih ada track berikutnya di queue, jalanin
-  if (qi < q.length - 1) { nxt(); return }
-  // Kalo udah abis, auto-recommend dulu baru play
-  autoRecommend().then(() => {
-    // Coba play lagu pertama dari rekomendasi
-    if (q.length > qi + 1) {
-      playAt(qi + 1)
-    } else {
-      playing = false
-    }
-  })
+  nxt()
 })
 a.addEventListener('loadedmetadata',()=>{$('p-dur').textContent=fmt(a.duration)})
 a.addEventListener('error',()=>{$('play-btn').textContent='▶';$('np-play').textContent='▶';playing=false})
