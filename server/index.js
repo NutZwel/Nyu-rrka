@@ -61,7 +61,15 @@ async function serveAudio(videoId, req, res) {
   // Download
   const tmpFile = path.join(TEMP_DIR, `${videoId}_${Date.now()}.m4a`)
   try {
-    ytExec(`-f 'bestaudio[ext=m4a]/bestaudio/best' -o "${tmpFile}" --no-warnings "https://youtube.com/watch?v=${videoId}"`, { timeout: 120000 })
+    // Coba berbagai format — dari yang prefer m4a sampe ke apapun yang ada audionya
+    let cmd = `-f 'bestaudio[ext=m4a]/bestaudio/best' -o "${tmpFile}" --no-warnings "https://youtube.com/watch?v=${videoId}"`
+    try { ytExec(cmd, { timeout: 120000 }) } catch {
+      cmd = `-f 'bestaudio' -o "${tmpFile}" --no-warnings "https://youtube.com/watch?v=${videoId}"`
+      try { ytExec(cmd, { timeout: 120000 }) } catch {
+        cmd = `-f 'worstaudio' -o "${tmpFile}" --no-warnings "https://youtube.com/watch?v=${videoId}"`
+        ytExec(cmd, { timeout: 120000 })
+      }
+    }
     if (!fs.existsSync(tmpFile)) throw new Error('No output')
     const stat = fs.statSync(tmpFile)
     audioCache.set(videoId, tmpFile)

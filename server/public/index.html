@@ -268,18 +268,58 @@ function updatePlayer() {
   $('np-artist').textContent = currentTrack.channel
 }
 
+let loadingTrack = false
+
 async function startStream(videoId) {
-  try {
-    $('player-play-btn').textContent = '⏳'
-    audio.src = API + '/api/stream/' + videoId
-    audio.load()
-    await audio.play()
+  loadingTrack = true
+  $('player-play-btn').textContent = '⏳'
+  isPlaying = false
+
+  // Pause & reset audio dulu
+  audio.pause()
+  audio.removeAttribute('src')
+  audio.load()
+
+  // Set src baru
+  audio.src = API + '/api/stream/' + videoId
+  audio.load()
+
+  // Tunggu canplay before play — biar gak gagal
+  audio.addEventListener('canplay', function onCanPlay() {
+    audio.removeEventListener('canplay', onCanPlay)
+    if (!loadingTrack) return
+    loadingTrack = false
+    audio.play().catch(() => {
+      // Retry once
+      setTimeout(() => audio.play().catch(() => {
+        $('player-play-btn').textContent = '▶'
+        isPlaying = false
+        // Auto skip ke next kalo gagal
+        setTimeout(nextTrack, 1000)
+      }), 500)
+    })
     isPlaying = true
     $('player-play-btn').textContent = '⏸'
-  } catch(e) {
-    console.error('Play failed:', e)
+  }, { once: true })
+
+  // Fallback kalo canplay gak fire dalam 30 detik
+  setTimeout(() => {
+    if (loadingTrack) {
+      loadingTrack = false
+      $('player-play-btn').textContent = '▶'
+      // Auto skip
+      setTimeout(nextTrack, 1000)
+    }
+  }, 30000)
+
+  audio.addEventListener('error', function onErr() {
+    audio.removeEventListener('error', onErr)
+    if (!loadingTrack) return
+    loadingTrack = false
     $('player-play-btn').textContent = '▶'
-  }
+    // Auto skip
+    setTimeout(nextTrack, 1000)
+  }, { once: true })
 }
 
 function togglePlay() {
@@ -290,12 +330,18 @@ function togglePlay() {
 }
 
 function nextTrack() {
-  if (queue.length && qIdx < queue.length-1) playTrack(queue[qIdx+1], qIdx+1)
-  else if (queue.length) playTrack(queue[0], 0)
+  if (!queue.length) return
+  loadingTrack = false // cancel current loading
+  audio.pause()
+  const nextIdx = qIdx < queue.length - 1 ? qIdx + 1 : 0
+  playTrack(queue[nextIdx], nextIdx)
 }
 
 function prevTrack() {
-  if (queue.length && qIdx > 0) playTrack(queue[qIdx-1], qIdx-1)
+  if (!queue.length || qIdx <= 0) return
+  loadingTrack = false
+  audio.pause()
+  playTrack(queue[qIdx - 1], qIdx - 1)
 }
 
 function seek(val) {
