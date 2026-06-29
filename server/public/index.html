@@ -249,6 +249,19 @@ function initAudioListeners() {
     $('p-dur').textContent = fmt(a.duration)
   })
 
+  // Watchdog: cek tiap detik kalo lagu abis di background (browser throttle event)
+  let lastWatchdogTime = 0
+  setInterval(() => {
+    if (!playing || !cur || !a.duration || a.duration < 5) return
+    // Kalo currentTime gak berubah dalam 3 detik (background throttle) dan lagu udah mendekati akhir
+    if (a.currentTime === lastWatchdogTime && a.duration - a.currentTime < 2 && a.currentTime > 5) {
+      playing = false
+      if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
+      nxt()
+    }
+    lastWatchdogTime = a.currentTime
+  }, 3000)
+
   a.addEventListener('ended', () => {
     if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
     playing = false
