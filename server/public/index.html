@@ -405,7 +405,64 @@ a.addEventListener('timeupdate',()=>{
   $('p-fill').style.width=p+'%';$('np-bar-fill').style.width=p+'%'
   $('p-curr').textContent=fmt(a.currentTime);$('p-dur').textContent=fmt(a.duration)
 })
-a.addEventListener('ended',()=>{if(lp==='one'){a.currentTime=0;a.play().catch(()=>{});return}playing=false;nxt()})
+// Auto-recommendation — ketika queue tinggal sedikit, tambahin rekomendasi otomatis
+let recCache = [] // cached recommendations
+let recLoading = false
+
+async function autoRecommend() {
+  if (recLoading) return
+  if (!cur) return
+
+  // Kalo queue masih banyak (>3), gak perlu rekomendasi
+  if (q.length - qi > 3 && q.length > 3) return
+
+  recLoading = true
+  try {
+    const qry = encodeURIComponent(cur.title + ' ' + cur.channel + ' music')
+    const r = await fetch(API + '/api/search?q=' + qry)
+    const d = await r.json()
+
+    // Filter: buang yang udah ada di queue atau current track
+    const existingIds = new Set(q.map(t => t.id))
+    if (cur) existingIds.add(cur.id)
+
+    const fresh = d.filter(t => !existingIds.has(t.id)).slice(0, 6)
+
+    if (fresh.length > 0) {
+      // Tambah ke queue
+      for (const track of fresh) {
+        q.push({
+          id: track.id,
+          title: track.title,
+          channel: track.channel,
+          thumbnail: track.thumbnail,
+          duration: track.duration
+        })
+      }
+      renderQ()
+      toast('🎵 Auto-recommended ' + fresh.length + ' songs')
+      recCache = fresh
+    }
+  } catch {}
+  recLoading = false
+}
+
+// Panggil auto-recommend pas stream selesai
+a.addEventListener('ended', () => {
+  if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
+  playing = false
+  // Kalo masih ada track berikutnya di queue, jalanin
+  if (qi < q.length - 1) { nxt(); return }
+  // Kalo udah abis, auto-recommend dulu baru play
+  autoRecommend().then(() => {
+    // Coba play lagu pertama dari rekomendasi
+    if (q.length > qi + 1) {
+      playAt(qi + 1)
+    } else {
+      playing = false
+    }
+  })
+})
 a.addEventListener('loadedmetadata',()=>{$('p-dur').textContent=fmt(a.duration)})
 a.addEventListener('error',()=>{$('play-btn').textContent='▶';$('np-play').textContent='▶';playing=false})
 
