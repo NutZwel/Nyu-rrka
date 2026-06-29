@@ -201,9 +201,9 @@ input{font-family:inherit}
     </div>
     <div class="ctrl">
       <button class="on" id="sf-btn" onclick="toggleShuffle()">⇄</button>
-      <button onclick="prevTrack()">⏮</button>
+      <button onclick="prevBtn()">⏮</button>
       <button class="big" id="play-btn" onclick="togglePlay()">▶</button>
-      <button onclick="nextTrack()">⏭</button>
+      <button onclick="nextBtn()">⏭</button>
       <button id="lp-btn" onclick="toggleLoop()">↺</button>
     </div>
   </div>
@@ -247,6 +247,12 @@ function initAudioListeners() {
     $('np-bar-fill').style.width = p + '%'
     $('p-curr').textContent = fmt(a.currentTime)
     $('p-dur').textContent = fmt(a.duration)
+    // Background playback: detek kalo lagu abis (mendekati akhir)
+    if (a.duration - a.currentTime < 0.5 && a.currentTime > 0 && playing) {
+      playing = false
+      if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
+      nxt()
+    }
   })
 
   a.addEventListener('ended', () => {
@@ -436,6 +442,9 @@ function nxt(){
 
   doAutoRecommend()
 }
+
+function nextBtn(){ nxt() }
+function prevBtn(){ prevTrack() }
 
 function prevTrack(){
   if(!q.length||qi<=0)return
