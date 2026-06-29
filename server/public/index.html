@@ -247,12 +247,6 @@ function initAudioListeners() {
     $('np-bar-fill').style.width = p + '%'
     $('p-curr').textContent = fmt(a.currentTime)
     $('p-dur').textContent = fmt(a.duration)
-    // Background playback: detek kalo lagu abis (hanya kalo duration valid & > 3 detik)
-    if (playing && a.duration > 3 && a.duration - a.currentTime < 0.5) {
-      playing = false
-      if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
-      nxt()
-    }
   })
 
   a.addEventListener('ended', () => {
@@ -426,21 +420,8 @@ function nxt(){
     return
   }
 
-  // Queue abis — auto-recommend
-  if (_recLock) {
-    // Lagi proses, tunggu polling
-    const checkInt = setInterval(() => {
-      if (!_recLock) {
-        clearInterval(checkInt)
-        if (q.length > 0 && qi < q.length - 1) playAt(qi + 1)
-      }
-    }, 300)
-    // timeout 15 detik
-    setTimeout(() => clearInterval(checkInt), 15000)
-    return
-  }
-
-  doAutoRecommend()
+  // Queue abis — auto-recommend dulu, baru play hasilnya
+  doAutoRecommend(true) // true = auto-play setelah selesai
 }
 
 function nextBtn(){ nxt() }
@@ -458,40 +439,47 @@ function toggleShuffle(){sf=!sf;$('sf-btn').classList.toggle('on',sf);toast(sf?'
 function toggleLoop(){const m=['none','all','one'];lp=m[(m.indexOf(lp)+1)%m.length];$('lp-btn').classList.toggle('on',lp!=='none');toast(lp==='none'?'Loop off':lp==='all'?'Loop all':'Loop one')}
 
 // ── Auto Recommend ──
-async function doAutoRecommend() {
+async function doAutoRecommend(autoPlay) {
   if (_recLock || !cur) return
+  // Kalo queue masih banyak (>3), gak perlu rekomendasi
+  if (q.length - qi > 2 && q.length > 2) return
+
   _recLock = true
-
-  // Kalo queue masih banyak, skip
-  if (q.length - qi > 2 && q.length > 2) { _recLock = false; return }
-
   try {
     const qry = encodeURIComponent(cur.title + ' ' + cur.channel + ' music')
     const r = await fetch(API + '/api/search?q=' + qry)
     const d = await r.json()
-
     const existingIds = new Set(q.map(t => t.id))
     if (cur) existingIds.add(cur.id)
-
     const fresh = d.filter(t => !existingIds.has(t.id)).slice(0, 6)
     if (fresh.length > 0) {
-      for (const track of fresh) {
-        q.push({
+      for (const track of fresh) q.push({
+        id: track.id, title: track.title,
+        channel: track.channel, thumbnail: track.thumbnail,
+        duration: track.duration
+      })
+      renderQ()
+      toast('🎵 +' + fresh.length + ' recommendations')
+      // Auto-play kalo diminta (queue abis, user pencet next)
+      if (autoPlay && qi < q.length - 1) playAt(qi + 1)
+    } else {
+      // Kalo gak ada fresh, coba search lagi dengan keyword berbeda
+      try {
+        const r2 = await fetch(API + '/api/search?q=' + encodeURIComponent(cur.channel + ' top songs'))
+        const d2 = await r2.json()
+        const f2 = d2.filter(t => !existingIds.has(t.id)).slice(0, 4)
+        for (const track of f2) q.push({
           id: track.id, title: track.title,
           channel: track.channel, thumbnail: track.thumbnail,
           duration: track.duration
         })
-      }
-      renderQ()
-      toast('🎵 +' + fresh.length + ' recommendations')
-      // Play next kalo ada
-      if (qi < q.length - 1) playAt(qi + 1)
-    } else {
-      toast('No recommendations found')
+        renderQ()
+        if (f2.length) toast('🎵 +' + f2.length + ' more')
+        if (autoPlay && qi < q.length - 1) playAt(qi + 1)
+      } catch {}
     }
   } catch {}
-  _recLock = false
-}
+  _recLock = false}
 
 // ── Recommendations for Home section ──
 let _recTimer
