@@ -16,7 +16,6 @@ html,body{height:100%;background:#0A0A0A;color:#fff;font-family:-apple-system,sy
 ::-webkit-scrollbar{display:none}
 input{font-family:inherit}
 
-/* App */
 .app{height:100%;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative;background:#0A0A0A}
 .scr{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
@@ -24,7 +23,7 @@ input{font-family:inherit}
 .hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 6px;flex-shrink:0}
 .hdr-l{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .hdr-l span{color:#1DB954}
-.hdr-r{width:32px;height:32px;border-radius:50%;background:#181818;border:0;color:#666;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.hdr-r{width:32px;height:32px;border-radius:50%;background:#181818;border:0;color:#666;cursor:pointer;font-size:14px}
 
 /* Search */
 .srch{margin:6px 20px 14px;position:relative}
@@ -59,7 +58,6 @@ input{font-family:inherit}
 .row .inf .t{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .inf .m{font-size:11px;color:#888;margin-top:2px}
 .row .act{background:0;border:0;color:#555;font-size:14px;padding:8px;cursor:pointer}
-.row .act:active{color:#888}
 
 /* Now Playing Bar */
 .npb{display:none;align-items:center;gap:10px;margin:0 10px;padding:8px 10px;background:#141414;border-radius:12px;cursor:pointer;flex-shrink:0;position:relative;overflow:hidden}
@@ -119,8 +117,7 @@ input{font-family:inherit}
 .sr .it .inf .m{font-size:11px;color:#888;margin-top:1px}
 .sr .it .add{background:0;border:0;color:#1DB954;font-size:18px;padding:8px;cursor:pointer}
 .sr .it .add:active{background:rgba(29,185,84,.12);border-radius:8px}
-.sr-m,.sr-l{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#555;font-size:13px;gap:8px;padding:20px}
-.sr-l{display:none}
+.sr-m{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#555;font-size:13px;gap:8px;padding:20px}
 
 /* Toast */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#1DB954;color:#000;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:all .3s cubic-bezier(.16,1,.3,1);z-index:200;pointer-events:none}
@@ -147,7 +144,6 @@ input{font-family:inherit}
     <input id="si" placeholder="What do you want to play?" autocomplete="off">
   </div>
 
-  <!-- Home -->
   <div id="home">
     <div class="sec" id="sec-rec" style="display:none">
       <div class="sec-h"><span class="sec-title">Recommended</span></div>
@@ -164,7 +160,6 @@ input{font-family:inherit}
     </div>
   </div>
 
-  <!-- Search results -->
   <div id="sr" class="sr" style="display:none"></div>
   <div id="sr-m" class="sr-m" style="display:none">⌕<span>Search for music</span></div>
 </div>
@@ -232,14 +227,47 @@ const API=''
 let q=[],qi=-1,cur=null,playing=false,vol=.7,lp='none',sf=false,loading=false
 const a=new Audio();a.preload='auto'
 const $=x=>document.getElementById(x)
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c])
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c])
 const fmt=s=>s?Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'):'0:00'
 let recent=JSON.parse(localStorage.getItem('nrk_recent')||'[]')
 
 let tmr
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tmr);tmr=setTimeout(()=>t.classList.remove('show'),2000)}
 
-// Tab switching
+// ── Cleanup audio listeners ──
+let audioListenersInitialized = false
+function initAudioListeners() {
+  if (audioListenersInitialized) return
+  audioListenersInitialized = true
+
+  a.addEventListener('timeupdate', () => {
+    if (!a.duration) return
+    const p = a.currentTime / a.duration * 100
+    $('p-fill').style.width = p + '%'
+    $('np-bar-fill').style.width = p + '%'
+    $('p-curr').textContent = fmt(a.currentTime)
+    $('p-dur').textContent = fmt(a.duration)
+  })
+
+  a.addEventListener('ended', () => {
+    if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
+    playing = false
+    nxt()
+  })
+
+  a.addEventListener('loadedmetadata', () => {
+    $('p-dur').textContent = fmt(a.duration)
+  })
+
+  a.addEventListener('error', () => {
+    $('play-btn').textContent = '▶'
+    $('np-play').textContent = '▶'
+    playing = false
+  })
+}
+initAudioListeners()
+
+// ── Tab switching ──
 function switchTab(t){
   document.querySelectorAll('.nav-b').forEach(b=>b.classList.remove('active'))
   const idx=t==='home'?0:t==='search'?1:2
@@ -261,12 +289,13 @@ function closePlayer(){$('ps').classList.remove('open')}
 function openQueue(){$('qs').classList.add('open');renderQ();$('sr-m').style.display='none';$('sr').style.display='none'}
 function closeQueue(){$('qs').classList.remove('open')}
 
-// Search
+// ── Search ──
 let st
 $('si').addEventListener('input',e=>{
-  clearTimeout(st);const q=e.target.value.trim()
-  if(q.length<3){$('home').style.display='none';$('sr').style.display='none';$('sr-m').style.display='flex';$('sr-m').innerHTML='⌕<span>Type at least 3 characters</span>';return}
-  st=setTimeout(()=>doSearch(q),300)
+  clearTimeout(st)
+  const v=e.target.value.trim()
+  if(v.length<3){$('home').style.display='none';$('sr').style.display='none';$('sr-m').style.display='flex';$('sr-m').innerHTML='⌕<span>Type at least 3 characters</span>';return}
+  st=setTimeout(()=>doSearch(v),300)
 })
 $('si').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(st);doSearch(e.target.value.trim())}})
 
@@ -287,7 +316,7 @@ function renderSearch(r){
 function justAdd(i){const t=window._ls[i];q.push(t);if(q.length===1&&!cur)playAt(q.length-1);renderQ()}
 function addAndPlay(i){const t=window._ls[i];q.push(t);playAt(q.length-1)}
 
-// Queue
+// ── Queue ──
 function renderQ(){
   const list=$('q-list')
   if(!q.length){list.innerHTML='';$('q-empty').style.display='flex';return}
@@ -300,11 +329,17 @@ function renderQ(){
 function delQ(i){q.splice(i,1);if(i<qi)qi--;else if(i===qi){qi=-1;cur=null;updP();$('npb').classList.remove('active')}renderQ()}
 function clearQ(){q=[];qi=-1;cur=null;a.pause();a.removeAttribute('src');a.load();playing=false;loading=false;updP();renderQ();closeQueue();toast('Queue cleared')}
 
-// Player
+// ── Player ──
+let _recLock=false
+
 function playAt(idx){
   if(idx<0||idx>=q.length)return
   qi=idx;cur=q[qi];loading=false
-  updP();stream(cur.id);saveRecent(cur);loadRecs();openPlayer()
+  updP();stream(cur.id);saveRecent(cur)
+  // Load recommendations untuk Home section
+  loadRecs()
+  openPlayer()
+  // Activate Home tab
   document.querySelectorAll('.nav-b')[0].classList.add('active')
   document.querySelectorAll('.nav-b')[1].classList.remove('active')
   document.querySelectorAll('.nav-b')[2].classList.remove('active')
@@ -317,55 +352,162 @@ function updP(){
   $('p-img').src=img;$('p-t').textContent=cur.title;$('p-ar').textContent=cur.channel
   updMediaSession()
 }
+
+// ── Stream management ──
+// Hanya pake 1x canplay + error listener per stream (dibersihin tiap stream baru)
+let _streamCancelled = false
+
 function stream(id){
+  _streamCancelled = true // cancel previous stream
+  const myId = Date.now()
+  _streamCancelled = false
+  const cancelId = myId
+
   loading=true;$('play-btn').textContent='⏳';playing=false
   if('mediaSession'in navigator)navigator.mediaSession.playbackState='none'
   a.pause();a.removeAttribute('src');a.load()
   a.src=API+'/api/stream/'+id;a.load()
-  let fired=false
-  a.addEventListener('canplay',function cp(){a.removeEventListener('canplay',cp);fired=true;if(!loading)return;loading=false;doPlay()},{once:true})
-  a.addEventListener('error',function er(){a.removeEventListener('error',er);if(!loading)return;loading=false;$('play-btn').textContent='▶';toast('Skipping...');setTimeout(nxt,1500)},{once:true})
-  setTimeout(()=>{if(loading&&!fired){loading=false;$('play-btn').textContent='▶';toast('Timeout');setTimeout(nxt,1500)}},35000)
+
+  const canplayHandler = () => {
+    a.removeEventListener('canplay', canplayHandler)
+    if (_streamCancelled || cancelId !== myId) return
+    loading=false
+    doPlay(cancelId)
+  }
+  const errorHandler = () => {
+    a.removeEventListener('error', errorHandler)
+    if (_streamCancelled || cancelId !== myId) return
+    loading=false;$('play-btn').textContent='▶';toast('Skipping...')
+    setTimeout(() => { if (!_streamCancelled) nxt() }, 1500)
+  }
+
+  a.addEventListener('canplay', canplayHandler)
+  a.addEventListener('error', errorHandler)
+
+  setTimeout(() => {
+    if (loading && !_streamCancelled && cancelId === myId) {
+      loading=false;$('play-btn').textContent='▶';toast('Timeout')
+      setTimeout(() => { if (!_streamCancelled) nxt() }, 1500)
+    }
+  }, 35000)
 }
-function doPlay(){
-  a.play().catch(()=>setTimeout(()=>a.play().catch(()=>{if(!loading)return;loading=false;$('play-btn').textContent='▶';toast('Play failed');setTimeout(nxt,1500)}),500))
+
+function doPlay(cid){
+  a.play().catch(()=>setTimeout(()=>a.play().catch(()=>{
+    if(_streamCancelled)return
+    loading=false;$('play-btn').textContent='▶';toast('Play failed')
+    setTimeout(() => { if (!_streamCancelled) nxt() }, 1500)
+  }),500))
   playing=true;$('play-btn').textContent='⏸';$('np-play').textContent='⏸'
 }
+
 function togglePlay(){
   if(!cur)return
   if(playing){a.pause();$('play-btn').textContent='▶';$('np-play').textContent='▶'}
   else{a.play().catch(()=>{});$('play-btn').textContent='⏸';$('np-play').textContent='⏸'}
   playing=!playing
 }
-function nxt(){
-  if(!q.length)return;loading=false;a.pause()
-  if(lp==='one'){a.currentTime=0;doPlay();return}
 
-  // Kalo masih ada lagu berikutnya di queue, play
+function nxt(){
+  if(!q.length)return
+  _streamCancelled = true
+  loading=false;a.pause()
+  if(lp==='one'){a.currentTime=0;doPlay(Date.now());return}
+
   if (qi < q.length - 1) {
     const ni = sf ? Math.floor(Math.random() * (q.length - qi - 1)) + qi + 1 : qi + 1
     playAt(ni)
     return
   }
 
-  // Queue abis — auto-recommend dulu baru play
-  autoRecommend().then(() => {
-    if (q.length > 0 && qi < q.length - 1) {
-      playAt(qi + 1)
-    } else {
-      toast('No more recommendations')
-      playing = false
-      $('play-btn').textContent = '▶'
-      $('np-play').textContent = '▶'
-    }
-  })
+  // Queue abis — auto-recommend
+  if (_recLock) {
+    // Lagi proses, tunggu polling
+    const checkInt = setInterval(() => {
+      if (!_recLock) {
+        clearInterval(checkInt)
+        if (q.length > 0 && qi < q.length - 1) playAt(qi + 1)
+      }
+    }, 300)
+    // timeout 15 detik
+    setTimeout(() => clearInterval(checkInt), 15000)
+    return
+  }
+
+  doAutoRecommend()
 }
-function prevTrack(){if(!q.length||qi<=0)return;loading=false;a.pause();playAt(qi-1)}
+
+function prevTrack(){
+  if(!q.length||qi<=0)return
+  _streamCancelled = true
+  loading=false;a.pause()
+  playAt(qi-1)
+}
+
 function seekTo(e){const r=e.currentTarget.getBoundingClientRect();const p=(e.clientX-r.left)/r.width;if(a.duration)a.currentTime=p*a.duration}
 function toggleShuffle(){sf=!sf;$('sf-btn').classList.toggle('on',sf);toast(sf?'Shuffle on':'Shuffle off')}
 function toggleLoop(){const m=['none','all','one'];lp=m[(m.indexOf(lp)+1)%m.length];$('lp-btn').classList.toggle('on',lp!=='none');toast(lp==='none'?'Loop off':lp==='all'?'Loop all':'Loop one')}
 
-// Recent
+// ── Auto Recommend ──
+async function doAutoRecommend() {
+  if (_recLock || !cur) return
+  _recLock = true
+
+  // Kalo queue masih banyak, skip
+  if (q.length - qi > 2 && q.length > 2) { _recLock = false; return }
+
+  try {
+    const qry = encodeURIComponent(cur.title + ' ' + cur.channel + ' music')
+    const r = await fetch(API + '/api/search?q=' + qry)
+    const d = await r.json()
+
+    const existingIds = new Set(q.map(t => t.id))
+    if (cur) existingIds.add(cur.id)
+
+    const fresh = d.filter(t => !existingIds.has(t.id)).slice(0, 6)
+    if (fresh.length > 0) {
+      for (const track of fresh) {
+        q.push({
+          id: track.id, title: track.title,
+          channel: track.channel, thumbnail: track.thumbnail,
+          duration: track.duration
+        })
+      }
+      renderQ()
+      toast('🎵 +' + fresh.length + ' recommendations')
+      // Play next kalo ada
+      if (qi < q.length - 1) playAt(qi + 1)
+    } else {
+      toast('No recommendations found')
+    }
+  } catch {}
+  _recLock = false
+}
+
+// ── Recommendations for Home section ──
+let _recTimer
+function loadRecs(){
+  if(!cur)return
+  clearTimeout(_recTimer)
+  _recTimer=setTimeout(async()=>{
+    try{
+      const r=await fetch(API+'/api/search?q='+encodeURIComponent(cur.title+' '+cur.channel+' music'))
+      const d=await r.json()
+      const f=d.filter(t=>t.id!==cur.id).slice(0,6)
+      if(!f.length){$('sec-rec').style.display='none';return}
+      $('sec-rec').style.display='block'
+      $('rec-hs').innerHTML=f.map(t=>`<div class="hs-it" onclick="playFromRec('${t.id}','${esc(t.title)}','${esc(t.channel)}','${esc(t.thumbnail)}',${t.duration})">
+        <div class="art"><img src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'"><div class="ov"></div><div class="pl">▶</div></div>
+        <div class="nm">${esc(t.title)}</div><div class="sub">${esc(t.channel)}</div></div>`).join('')
+    }catch{}
+  },500)
+}
+function playFromRec(id,title,channel,thumbnail,duration){
+  q.push({id,title,channel,thumbnail,duration})
+  playAt(q.length-1)
+}
+
+// ── Recent ──
 function saveRecent(t){
   const arr=recent.filter(r=>r.id!==t.id);arr.unshift(t);recent.length=0;recent.push(...arr.slice(0,10))
   localStorage.setItem('nrk_recent',JSON.stringify(recent));renderRecent()
@@ -373,37 +515,15 @@ function saveRecent(t){
 function renderRecent(){
   if(!recent.length){$('sec-recent').style.display='none';return}
   $('sec-recent').style.display='block'
-  $('recent-list').innerHTML=recent.map(t=>`<div class="row" onclick="playRecent('${t.id}','${esc(t.title)}','${esc(t.channel)}','${esc(t.thumbnail)}',${t.duration})">
+  $('recent-list').innerHTML=recent.map(t=>`<div class="row" onclick="playFromRecent('${t.id}','${esc(t.title)}','${esc(t.channel)}','${esc(t.thumbnail)}',${t.duration})">
     <img class="art" src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'">
     <div class="inf"><div class="t">${esc(t.title)}</div><div class="m">${esc(t.channel)} · ${fmt(t.duration)}</div></div></div>`).join('')
 }
-function playRecent(id,title,channel,thumbnail,duration){
+function playFromRecent(id,title,channel,thumbnail,duration){
   q.push({id,title,channel,thumbnail,duration});playAt(q.length-1)
 }
 
-// Recommendations
-let rt
-function loadRecs(){
-  if(!cur)return
-  clearTimeout(rt)
-  rt=setTimeout(async()=>{
-    try{
-      const r=await fetch(API+'/api/search?q='+encodeURIComponent(cur.title+' '+cur.channel+' music'))
-      const d=await r.json()
-      const f=d.filter(t=>t.id!==cur.id).slice(0,6)
-      if(!f.length){$('sec-rec').style.display='none';return}
-      $('sec-rec').style.display='block'
-      $('rec-hs').innerHTML=f.map(t=>`<div class="hs-it" onclick="recPlay('${t.id}','${esc(t.title)}','${esc(t.channel)}','${esc(t.thumbnail)}',${t.duration})">
-        <div class="art"><img src="${esc(t.thumbnail)}" onerror="this.src='/apple-icon.png'"><div class="ov"></div><div class="pl">▶</div></div>
-        <div class="nm">${esc(t.title)}</div><div class="sub">${esc(t.channel)}</div></div>`).join('')
-    }catch{}
-  },500)
-}
-function recPlay(id,title,channel,thumbnail,duration){
-  q.push({id,title,channel,thumbnail,duration});playAt(q.length-1)
-}
-
-// Media Session
+// ── Media Session ──
 function updMediaSession(){
   if(!('mediaSession'in navigator)||!cur)return
   navigator.mediaSession.metadata=new MediaMetadata({title:cur.title,artist:cur.channel,artwork:[{src:cur.thumbnail||'/apple-icon.png',sizes:'512x512',type:'image/png'}]})
@@ -414,63 +534,6 @@ function updMediaSession(){
   navigator.mediaSession.setActionHandler('previoustrack',()=>prevTrack())
   navigator.mediaSession.setActionHandler('seekto',d=>{if(a.duration&&d.seekTime)a.currentTime=d.seekTime})
 }
-
-// Audio events
-a.addEventListener('timeupdate',()=>{
-  if(!a.duration)return
-  const p=a.currentTime/a.duration*100
-  $('p-fill').style.width=p+'%';$('np-bar-fill').style.width=p+'%'
-  $('p-curr').textContent=fmt(a.currentTime);$('p-dur').textContent=fmt(a.duration)
-})
-// Auto-recommendation — ketika queue tinggal sedikit, tambahin rekomendasi otomatis
-let recCache = [] // cached recommendations
-let recLoading = false
-
-async function autoRecommend() {
-  if (recLoading) return
-  if (!cur) return
-
-  // Kalo queue masih banyak (>3), gak perlu rekomendasi
-  if (q.length - qi > 3 && q.length > 3) return
-
-  recLoading = true
-  try {
-    const qry = encodeURIComponent(cur.title + ' ' + cur.channel + ' music')
-    const r = await fetch(API + '/api/search?q=' + qry)
-    const d = await r.json()
-
-    // Filter: buang yang udah ada di queue atau current track
-    const existingIds = new Set(q.map(t => t.id))
-    if (cur) existingIds.add(cur.id)
-
-    const fresh = d.filter(t => !existingIds.has(t.id)).slice(0, 6)
-
-    if (fresh.length > 0) {
-      // Tambah ke queue
-      for (const track of fresh) {
-        q.push({
-          id: track.id,
-          title: track.title,
-          channel: track.channel,
-          thumbnail: track.thumbnail,
-          duration: track.duration
-        })
-      }
-      renderQ()
-      toast('🎵 Auto-recommended ' + fresh.length + ' songs')
-      recCache = fresh
-    }
-  } catch {}
-  recLoading = false
-}
-
-a.addEventListener('ended', () => {
-  if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
-  playing = false
-  nxt()
-})
-a.addEventListener('loadedmetadata',()=>{$('p-dur').textContent=fmt(a.duration)})
-a.addEventListener('error',()=>{$('play-btn').textContent='▶';$('np-play').textContent='▶';playing=false})
 
 renderQ();renderRecent()
 </script>
