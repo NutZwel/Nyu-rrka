@@ -247,8 +247,8 @@ function initAudioListeners() {
     $('np-bar-fill').style.width = p + '%'
     $('p-curr').textContent = fmt(a.currentTime)
     $('p-dur').textContent = fmt(a.duration)
-    // Background playback: detek kalo lagu abis (mendekati akhir)
-    if (a.duration - a.currentTime < 0.5 && a.currentTime > 0 && playing) {
+    // Background playback: detek kalo lagu abis (hanya kalo duration valid & > 3 detik)
+    if (playing && a.duration > 3 && a.duration - a.currentTime < 0.5) {
       playing = false
       if (lp === 'one') { a.currentTime = 0; a.play().catch(()=>{}); return }
       nxt()
